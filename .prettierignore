@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+pnpm-lock.yaml
+
+# Authored prose, owned by the CTO and outside this scaffold's remit.
+# Reformatting it would churn files unrelated to the ticket at hand.
+docs/
+README.md
+
+# Owned by K2 (see .github/CODEOWNERS). The workflow files under
+# .github/workflows/ are still formatted.
+.github/*.md
