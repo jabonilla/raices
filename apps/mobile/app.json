@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Raíces",
+    "slug": "raices",
+    "version": "0.0.0",
+    "scheme": "raices",
+    "plugins": ["expo-router"]
+  }
+}

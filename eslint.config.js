@@ -50,5 +50,16 @@ export default tseslint.config(
     files: ["**/*.js"],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    // babel.config.js is CommonJS; give it the node globals it uses.
+    files: ["apps/mobile/babel.config.js"],
+    languageOptions: {
+      globals: {
+        module: "writable",
+        require: "readonly",
+        __dirname: "readonly",
+      },
+    },
+  },
   prettier,
 );

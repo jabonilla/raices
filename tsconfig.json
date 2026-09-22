@@ -1,7 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "jsx": "react-native"
   },
   "include": [
     "apps/**/src/**/*.ts",
@@ -10,7 +11,10 @@
     "packages/**/test/**/*.ts",
     "tests/**/*.ts",
     "scripts/**/*.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "apps/**/src/**/*.tsx",
+    "apps/**/test/**/*.tsx",
+    "apps/**/app/**/*.tsx"
   ],
   "exclude": ["**/node_modules", "**/dist"]
 }
