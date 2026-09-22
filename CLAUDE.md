@@ -6,7 +6,7 @@ Read this file in full before every task. It overrides your defaults.
 
 A cross-border payments product. A US-based sender and a Guatemala-based recipient share a structured financial relationship. Money moves with a stated purpose attached and an approval gate. Recipients use WhatsApp only and install nothing.
 
-Before any task, read `docs/immigrant-wealth-protection-PRD-v2.md`. For architecture questions, read `docs/immigrant-wealth-protection-architecture-brief.md`. Your ticket lives in `docs/tickets/`.
+Your ticket lives in `docs/tickets/`. For Phases 0–1, the tickets are self-contained, so don't go looking for other docs. The PRD and architecture brief get added to `docs/` before Phase 2.
 
 ## Team and authority
 
