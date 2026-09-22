@@ -30,7 +30,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "kysely": "^0.28.8",
+    "kysely": "^0.29.6",
     "pg": "^8.16.3"
   }
 }
