@@ -26,6 +26,11 @@ export const tokens = {
     lg: 24,
     xl: 32,
   },
+  // Accessibility baseline (K2.7): minimum 44x44pt touch target for every
+  // interactive element (Apple HIG / WCAG 2.5.8).
+  touchTarget: {
+    min: 44,
+  },
 } as const;
 
 export type Tokens = typeof tokens;
