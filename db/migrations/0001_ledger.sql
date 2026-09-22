@@ -5,6 +5,11 @@
 -- role a layer earlier, at the permission check. Both are required: a grant
 -- alone would not stop a migration or a console session, and a trigger alone
 -- can be bypassed by a superuser setting session_replication_role.
+--
+-- The currency lists below must stay in step with the Currency union in
+-- packages/money. Adding a currency is deliberately a migration, not a
+-- one-line type change; apps/api/test/ledger-schema.test.ts fails if the two
+-- drift apart.
 
 -- ---------------------------------------------------------------------------
 -- Roles
@@ -30,7 +35,8 @@ create table ledger_account (
   id          uuid        primary key default gen_random_uuid(),
   code        text        not null unique,
   type        text        not null check (type in ('asset', 'liability', 'equity', 'revenue', 'expense')),
-  currency    char(3)     not null,
+  currency    char(3)     not null
+    constraint ledger_account_currency_supported check (currency in ('USD', 'GTQ')),
   created_at  timestamptz not null default now(),
 
   -- Redundant against the primary key, but a composite foreign key needs a
@@ -55,7 +61,8 @@ create table ledger_entry (
   account_id      uuid        not null,
   direction       text        not null check (direction in ('debit', 'credit')),
   amount_minor    bigint      not null check (amount_minor > 0),
-  currency        char(3)     not null,
+  currency        char(3)     not null
+    constraint ledger_entry_currency_supported check (currency in ('USD', 'GTQ')),
   entry_type      text        not null,
   created_at      timestamptz not null default now(),
 
@@ -157,6 +164,34 @@ create constraint trigger ledger_entry_balanced
   after insert on ledger_entry
   deferrable initially deferred
   for each row execute function ledger_assert_transaction_balanced();
+
+-- The balance trigger hangs off ledger_entry, so a transaction with no
+-- entries never trips it. Guarding the transaction row itself means the
+-- database does not depend on the posting code being correct.
+create or replace function ledger_assert_transaction_has_entries() returns trigger
+language plpgsql as $$
+declare
+  entry_count bigint;
+begin
+  select count(*) into entry_count
+  from ledger_entry
+  where transaction_id = new.id;
+
+  if entry_count = 0 then
+    raise exception
+      'ledger transaction % has no entries; double-entry requires at least 2',
+      new.id
+      using errcode = 'LG003';
+  end if;
+
+  return null;
+end
+$$;
+
+create constraint trigger ledger_transaction_has_entries
+  after insert on ledger_transaction
+  deferrable initially deferred
+  for each row execute function ledger_assert_transaction_has_entries();
 
 -- ---------------------------------------------------------------------------
 -- Grants

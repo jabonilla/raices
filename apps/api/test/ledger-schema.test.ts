@@ -1,6 +1,8 @@
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { SUPPORTED_CURRENCIES } from "@raices/money";
+
 import { startTestPostgres, type TestPostgres } from "../../../tests/pg.js";
 
 /**
@@ -373,6 +375,114 @@ describe("column constraints", () => {
        values ('${accountCode("cash.usd")}', 'asset', 'USD')`,
     );
     expect(code).toBe(UNIQUE_VIOLATION);
+  });
+});
+
+describe("a transaction must have entries", () => {
+  it("rejects a transaction with no entries at all, at COMMIT", async () => {
+    // The balance trigger hangs off ledger_entry, so with zero entries it
+    // never fires. Without a guard on ledger_transaction itself an orphaned
+    // transaction row would be perfectly legal.
+    const code = await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query(
+          `insert into ledger_transaction (idempotency_key, request_hash, description, occurred_at)
+           values ($1, 'hash', 'orphan', now())`,
+          [crypto.randomUUID()],
+        );
+        await client.query("commit");
+        return undefined;
+      } catch (error) {
+        await client.query("rollback").catch(() => undefined);
+        return errorCode(error);
+      }
+    });
+
+    expect(code).toBe(TOO_FEW_ENTRIES);
+  });
+
+  it("writes no transaction row when that commit is rejected", async () => {
+    const before = await withClient(async (client) => {
+      const r = await client.query<{ n: number }>(
+        "select count(*)::int as n from ledger_transaction",
+      );
+      return r.rows[0]?.n ?? 0;
+    });
+
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query(
+          `insert into ledger_transaction (idempotency_key, request_hash, description, occurred_at)
+           values ($1, 'hash', 'orphan', now())`,
+          [crypto.randomUUID()],
+        );
+        await client.query("commit");
+      } catch {
+        await client.query("rollback").catch(() => undefined);
+      }
+    });
+
+    const after = await withClient(async (client) => {
+      const r = await client.query<{ n: number }>(
+        "select count(*)::int as n from ledger_transaction",
+      );
+      return r.rows[0]?.n ?? 0;
+    });
+
+    expect(after).toBe(before);
+  });
+});
+
+describe("currency is restricted to what packages/money supports", () => {
+  it.each([["EUR"], ["XYZ"], ["   "], ["usd"]])("rejects an account in %p", async (currency) => {
+    const code = await failureCode(
+      `insert into ledger_account (code, type, currency)
+         values ('bad.${crypto.randomUUID()}', 'asset', '${currency}')`,
+    );
+    expect(code).toBe(CHECK_VIOLATION);
+  });
+
+  it("rejects an entry in an unsupported currency", async () => {
+    const code = await failureCode(
+      `insert into ledger_entry (transaction_id, account_id, direction, amount_minor, currency, entry_type)
+       values ('${seededTransaction}', '${cashUsd}', 'debit', 1, 'EUR', 'test')`,
+    );
+    // The CHECK is evaluated as the row is formed, before the composite
+    // foreign key's after-row trigger, so this is the check speaking.
+    expect(code).toBe(CHECK_VIOLATION);
+  });
+
+  it.each(SUPPORTED_CURRENCIES)("accepts %s, which packages/money supports", async (currency) => {
+    const code = await failureCode(
+      `insert into ledger_account (code, type, currency)
+       values ('ok.${currency}.${crypto.randomUUID()}', 'asset', '${currency}')`,
+    );
+    expect(code).toBeUndefined();
+  });
+
+  it("stays in sync with packages/money", async () => {
+    // A currency added to the union but not to the migration would be
+    // accepted by the type system and rejected by the database.
+    const definitions = await withClient(async (client) => {
+      const r = await client.query<{ definition: string }>(
+        `select pg_get_constraintdef(oid) as definition
+         from pg_constraint
+         where conname in ('ledger_account_currency_supported', 'ledger_entry_currency_supported')`,
+      );
+      return r.rows.map((row) => row.definition);
+    });
+
+    expect(definitions).toHaveLength(2);
+    for (const definition of definitions) {
+      for (const currency of SUPPORTED_CURRENCIES) {
+        expect(definition).toContain(currency);
+      }
+      // Nothing beyond the supported set is listed.
+      const listed = [...definition.matchAll(/'([A-Za-z ]{3})'/g)].map((m) => m[1]);
+      expect(new Set(listed)).toEqual(new Set(SUPPORTED_CURRENCIES));
+    }
   });
 });
 
