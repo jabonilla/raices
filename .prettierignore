@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+pnpm-lock.yaml
+
+# Authored prose, owned by the CTO and outside this scaffold's remit.
+# Reformatting it would churn files unrelated to the ticket at hand.
+docs/
+README.md

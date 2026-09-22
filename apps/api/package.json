@@ -1,0 +1,16 @@
+{
+  "name": "@raices/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@raices/money": "workspace:*",
+    "fastify": "^5.6.1",
+    "kysely": "^0.28.8",
+    "pg": "^8.16.3"
+  }
+}

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: make verify
+    # ubuntu-latest runners ship a running Docker daemon, which Testcontainers
+    # needs to start the Postgres 16 used by the database tests.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm Docker is available for Testcontainers
+        run: docker info
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # TEST_DATABASE_URL is deliberately not set: CI must exercise the
+      # Testcontainers path, not a pre-provisioned database.
+      - name: make verify
+        run: make verify
