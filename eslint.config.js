@@ -61,5 +61,21 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // Every user-facing string in the mobile app goes through i18n keys.
+    // Hardcoded JSX text is banned; use t("key") instead. (K2.4)
+    files: ["apps/mobile/app/**/*.tsx", "apps/mobile/src/**/*.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          // JSXText with non-whitespace content, e.g. <Text>Hello</Text>.
+          // Whitespace-only JSXText (formatting) is allowed.
+          selector: "JSXText[value=/\\S/]",
+          message: 'Hardcoded user-facing string. Use t("key") from react-i18next instead.',
+        },
+      ],
+    },
+  },
   prettier,
 );
