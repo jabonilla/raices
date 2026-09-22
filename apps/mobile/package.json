@@ -1,0 +1,29 @@
+{
+  "name": "mobile",
+  "version": "0.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start"
+  },
+  "dependencies": {
+    "expo": "~57.0.24",
+    "expo-constants": "~57.0.0",
+    "expo-linking": "~57.0.0",
+    "expo-router": "~57.0.22",
+    "expo-status-bar": "~3.0.0",
+    "react": "~19.1.0",
+    "react-native": "0.81.4",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-reanimated": "~4.1.0",
+    "react-native-safe-area-context": "~5.4.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "^0.21.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.1",
+    "@types/react": "~19.1.0",
+    "babel-preset-expo": "~57.0.0",
+    "react-dom": "~19.1.0"
+  }
+}
