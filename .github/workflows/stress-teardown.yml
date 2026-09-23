@@ -1,0 +1,28 @@
+name: Teardown stress (temporary, K2.16)
+
+# Runs the test suite 20 times in a row to validate the teardown-race fix.
+# Temporary: deleted before merge once 20 consecutive greens are observed.
+on:
+  push:
+    branches: [k2/fix-teardown]
+  workflow_dispatch:
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: 20 consecutive suite runs
+        run: |
+          for i in $(seq 1 20); do
+            echo "=== run $i/20 ==="
+            pnpm test || { echo "FAILED on run $i"; exit 1; }
+          done
+          echo "All 20 runs green."
