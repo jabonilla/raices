@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import { checkDatabaseReady } from "./health.js";
 import { createPool } from "./db/index.js";
+import { NotFoundError, toApiError } from "./errors.js";
 import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
 
 export interface HealthResponse {
@@ -53,6 +54,23 @@ export function buildApp(): FastifyInstance {
     reply.header(REQUEST_ID_HEADER, requestId);
     request.log = request.log.child({ requestId });
     done();
+  });
+
+  // One error shape for every response. Internal details never leave the
+  // server: 5xx originals are logged with the request id, the client gets
+  // the envelope.
+  app.setErrorHandler((error, request, reply) => {
+    const requestId = request.id;
+    const mapped = toApiError(error, requestId);
+    if (mapped.statusCode >= 500) {
+      request.log.error({ err: error, requestId }, "unhandled error");
+    }
+    reply.status(mapped.statusCode).send(mapped.body);
+  });
+
+  app.setNotFoundHandler((request, reply) => {
+    const error = new NotFoundError();
+    reply.status(error.statusCode).send(toApiError(error, request.id).body);
   });
 
   // /health: process is up. No dependencies checked.
