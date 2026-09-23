@@ -81,6 +81,14 @@ export default defineConfig({
         },
       },
       {
+        test: {
+          name: "channels",
+          root: "./packages/channels",
+          environment: "node",
+          include: ["test/**/*.test.ts"],
+        },
+      },
+      {
         // Root scripts (migrate, seed, guards): pure unit tests, no DB.
         test: {
           name: "scripts",
