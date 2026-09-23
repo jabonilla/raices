@@ -240,10 +240,37 @@ describe("atomicity: the state change cannot commit without its audit row", () =
     const id = await aWidget("invited");
     await sabotageAuditInsert();
 
-    await expect(move(id, "invited", "active")).rejects.toThrow(/sabotaged audit insert/);
+    // Read the row back inside the doomed transaction. Without this the test
+    // would pass just as happily if transition() wrote the audit row first and
+    // never reached the state change at all — there would be nothing to roll
+    // back, and "still invited" would prove nothing.
+    let seenInsideTransaction: WidgetState | undefined;
 
-    // The state change ran before the audit insert, so this is a genuine
-    // rollback of work already done, not a write that never started.
+    await expect(
+      transition(
+        db,
+        widgetMachine,
+        {
+          entityId: id,
+          from: "invited",
+          to: "active",
+          action: "widget.active",
+          actor: { kind: "user", id: crypto.randomUUID() },
+        },
+        async (trx) => {
+          await trx.updateTable("widget").set({ status: "active" }).where("id", "=", id).execute();
+          const row = await trx
+            .selectFrom("widget")
+            .select("status")
+            .where("id", "=", id)
+            .executeTakeFirst();
+          seenInsideTransaction = row?.status;
+        },
+      ),
+    ).rejects.toThrow(/sabotaged audit insert/);
+
+    // The state change really happened, and was really undone.
+    expect(seenInsideTransaction).toBe("active");
     expect(await statusOf(id)).toBe("invited");
     expect(await auditRowsFor(id)).toEqual([]);
   });
@@ -346,21 +373,19 @@ describe("a state change that bypasses transition()", () => {
  */
 describe("property: one audit row per transition", () => {
   /** A legal path through the machine, as a list of edges. */
-  const legalPath = fc
-    .array(fc.nat(), { minLength: 0, maxLength: 12 })
-    .map((choices) => {
-      const edges: { from: WidgetState; to: WidgetState }[] = [];
-      let current: WidgetState = "invited";
-      for (const choice of choices) {
-        const options = widgetMachine.transitions[current];
-        if (options.length === 0) break;
-        const next = options[choice % options.length];
-        if (next === undefined) break;
-        edges.push({ from: current, to: next });
-        current = next;
-      }
-      return edges;
-    });
+  const legalPath = fc.array(fc.nat(), { minLength: 0, maxLength: 12 }).map((choices) => {
+    const edges: { from: WidgetState; to: WidgetState }[] = [];
+    let current: WidgetState = "invited";
+    for (const choice of choices) {
+      const options: readonly WidgetState[] = widgetMachine.transitions[current];
+      if (options.length === 0) break;
+      const next: WidgetState | undefined = options[choice % options.length];
+      if (next === undefined) break;
+      edges.push({ from: current, to: next });
+      current = next;
+    }
+    return edges;
+  });
 
   it("holds for any legal sequence", async () => {
     await fc.assert(
