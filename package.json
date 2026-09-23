@@ -12,7 +12,14 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "test:coverage": "pnpm test:coverage:money && pnpm test:coverage:ledger && pnpm test:coverage:rest",
+    "test:coverage:money": "vitest run --project money --coverage --coverage.include='src/**' --coverage.exclude='**/*.d.ts' --coverage.thresholds.lines=95 --coverage.thresholds.branches=88 --coverage.thresholds.functions=95 --coverage.thresholds.statements=94 --coverage.reporter=text",
+    "test:coverage:ledger": "vitest run --project api --coverage --coverage.include='src/ledger/**' --coverage.thresholds.lines=90 --coverage.thresholds.branches=85 --coverage.thresholds.functions=90 --coverage.thresholds.statements=90 --coverage.reporter=text",
+    "test:coverage:rest": "pnpm test:coverage:rest:api && pnpm test:coverage:rest:other",
+    "test:coverage:rest:api": "vitest run --project api --coverage --coverage.exclude='src/ledger/**' --coverage.exclude='**/*.d.ts' --coverage.exclude='**/*.json' --coverage.thresholds.lines=60 --coverage.thresholds.branches=50 --coverage.thresholds.functions=50 --coverage.thresholds.statements=60 --coverage.reporter=text",
+    "test:coverage:rest:other": "vitest run --project mobile --project settlement --project guardrails --coverage --coverage.exclude='**/*.d.ts' --coverage.exclude='**/*.json' --coverage.thresholds.lines=80 --coverage.thresholds.branches=75 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.reporter=text",
+    "test:determinism": "tsx scripts/check-determinism.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -28,7 +35,8 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.2",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "@vitest/coverage-v8": "^5.0.1"
   },
   "dependencies": {
     "kysely": "^0.28.8",
