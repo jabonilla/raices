@@ -71,6 +71,21 @@ export default defineConfig({
           include: ["test/**/*.test.ts"],
         },
       },
+      {
+        // Guardrail regression tests: verify that the ESLint float ban and
+        // the TypeScript multiply-without-rounding error still fire. If a
+        // dependency upgrade silently disarms them, these tests fail. (K2.8)
+        test: {
+          name: "guardrails",
+          root: "./tests/guardrails",
+          environment: "node",
+          include: ["**/*.test.ts"],
+          // Loading the repo's real eslint.config.js with type-aware
+          // linting is far slower than an inline config. Each test spins up
+          // a fresh ESLint instance, so give them room. (K2.8 fix)
+          testTimeout: 60_000,
+        },
+      },
     ],
   },
 });
