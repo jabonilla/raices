@@ -77,6 +77,27 @@ async function assertUsableTestDatabaseVia(pool: pg.Pool): Promise<void> {
   });
 }
 
+/**
+ * Build a unique, safe name for a per-run database on the supplied server.
+ *
+ * The name still ends in `_test`, so the guard above holds for it too, and it
+ * is assembled here from a sanitised base plus random hex rather than from
+ * anything a caller supplies, which is what makes it safe to interpolate into
+ * the `create database` below (identifiers cannot be parameterised).
+ */
+function perRunDatabaseName(base: string): string {
+  const stem = base.replace(/[^a-z0-9_]/gi, "_").slice(0, 32);
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+  return `${stem}_${suffix}_test`;
+}
+
+/** The same connection string, pointed at a different database on that server. */
+function withDatabase(connectionString: string, database: string): string {
+  const url = new URL(connectionString);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
 export interface TestPostgres {
   /** Connection string for the running Postgres. */
   readonly connectionString: string;
@@ -92,25 +113,67 @@ export interface TestPostgres {
 }
 
 /**
+ * Drop a per-run database and close the connection that created it.
+ *
+ * `with (force)` because a pool that failed to close cleanly would otherwise
+ * keep the database alive and leak it onto the developer's server.
+ */
+async function dropPerRunDatabase(
+  admin: { pool: pg.Pool; database: string } | undefined,
+): Promise<void> {
+  if (admin === undefined) return;
+  try {
+    await admin.pool.query(`drop database if exists "${admin.database}" with (force)`);
+  } finally {
+    await admin.pool.end();
+  }
+}
+
+/**
  * Start Postgres 16, run `db/migrations` against it, and hand back a Kysely
  * instance.
  *
  * Normally this starts a throwaway container. If TEST_DATABASE_URL is set it
- * uses that database instead, which is the only way to run these tests where a
+ * uses that server instead, which is the only way to run these tests where a
  * Docker daemon is unavailable. CI leaves it unset, so CI always exercises the
  * container path.
  *
  * A database supplied that way must be a Postgres 16 whose name ends in
  * `_test`; anything else is refused before a single migration runs.
+ *
+ * Either way, every call gets a database of its own: the container path by
+ * definition, and the TEST_DATABASE_URL path because we create a throwaway
+ * database on that server and drop it in `stop()`. Vitest runs test files in
+ * parallel, so sharing one database across them makes any assertion about
+ * global state — a row count, "these are all the accounts" — depend on which
+ * other files happen to be running. That failed locally while CI stayed green,
+ * because CI gives each file its own container. Now both paths agree.
  */
 export async function startTestPostgres(): Promise<TestPostgres> {
   const existing = process.env["TEST_DATABASE_URL"];
 
   let container: StartedPostgreSqlContainer | undefined;
   let connectionString: string;
+  // Set only on the TEST_DATABASE_URL path: the server we created the per-run
+  // database on, and therefore the one that has to drop it again.
+  let admin: { pool: pg.Pool; database: string } | undefined;
 
   if (existing !== undefined && existing !== "") {
-    connectionString = existing;
+    // Check the supplied database before creating anything on its server: an
+    // unsafe TEST_DATABASE_URL must be refused, not merely worked around.
+    const adminPool = new pg.Pool({ connectionString: existing });
+    let database: string;
+    try {
+      await assertUsableTestDatabaseVia(adminPool);
+      const { rows } = await adminPool.query<{ name: string }>("select current_database() as name");
+      database = perRunDatabaseName(rows[0]?.name ?? "raices");
+      await adminPool.query(`create database "${database}"`);
+    } catch (error) {
+      await adminPool.end();
+      throw error;
+    }
+    admin = { pool: adminPool, database };
+    connectionString = withDatabase(existing, database);
   } else {
     try {
       container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
@@ -127,14 +190,12 @@ export async function startTestPostgres(): Promise<TestPostgres> {
   const pool = new pg.Pool({ connectionString });
 
   try {
-    // Only an externally supplied database has to prove itself. The container
-    // above was created here, and its default database is not named "*_test".
-    if (container === undefined) {
-      await assertUsableTestDatabaseVia(pool);
-    }
+    // An externally supplied database proved itself above, before its server
+    // was touched; the container was created here and needs no such proof.
     await applyMigrations(pool);
   } catch (error) {
     await pool.end();
+    await dropPerRunDatabase(admin);
     throw error;
   }
 
@@ -164,6 +225,7 @@ export async function startTestPostgres(): Promise<TestPostgres> {
       if (container !== undefined) {
         await container.stop();
       }
+      await dropPerRunDatabase(admin);
     },
   };
 }
