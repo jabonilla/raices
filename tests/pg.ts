@@ -77,6 +77,27 @@ async function assertUsableTestDatabaseVia(pool: pg.Pool): Promise<void> {
   });
 }
 
+/**
+ * Build a unique, safe name for a per-run database on the supplied server.
+ *
+ * The name still ends in `_test`, so the guard above holds for it too, and it
+ * is assembled here from a sanitised base plus random hex rather than from
+ * anything a caller supplies, which is what makes it safe to interpolate into
+ * the `create database` below (identifiers cannot be parameterised).
+ */
+function perRunDatabaseName(base: string): string {
+  const stem = base.replace(/[^a-z0-9_]/gi, "_").slice(0, 32);
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+  return `${stem}_${suffix}_test`;
+}
+
+/** The same connection string, pointed at a different database on that server. */
+function withDatabase(connectionString: string, database: string): string {
+  const url = new URL(connectionString);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
 export interface TestPostgres {
   /** Connection string for the running Postgres. */
   readonly connectionString: string;
@@ -91,26 +112,139 @@ export interface TestPostgres {
   stop(): Promise<void>;
 }
 
+/** Per-run databases this module creates, by name. */
+const PER_RUN_DATABASE_PATTERN = "_[0-9a-f]{12}_test$";
+
+/** How long a per-run database must be idle before the sweep reclaims it. */
+const STALE_AFTER_MS = 30 * 60 * 1000;
+
+/** SQLSTATE 55006 object_in_use: something is still connected to the database. */
+const OBJECT_IN_USE = "55006";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Drop a database, waiting briefly for stragglers to disconnect.
+ *
+ * Deliberately not `with (force)`. Forcing sends SIGTERM to whatever is still
+ * connected, and a pooled client killed while idle surfaces as an unhandled
+ * error in the test run rather than a clean teardown.
+ *
+ * `stop()` waits for the backends to drain before calling this, so the first
+ * attempt normally succeeds. The retry is a safety net for a connection that
+ * outlives that wait; anything still held afterwards is left for the sweep at
+ * the next run's startup, which is a delay rather than a leak.
+ */
+async function dropDatabase(pool: pg.Pool, database: string): Promise<boolean> {
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    try {
+      await pool.query(`drop database if exists "${database}"`);
+      return true;
+    } catch (error) {
+      const code: unknown = (error as { code?: unknown }).code;
+      if (code !== OBJECT_IN_USE) throw error;
+      await sleep(50);
+    }
+  }
+  return false;
+}
+
+/**
+ * Reclaim per-run databases abandoned by an earlier run.
+ *
+ * Only databases with nothing connected are considered, and of those only the
+ * ones old enough that no test file could still be using them: a database
+ * created moments ago belongs to a sibling running in parallel right now. The
+ * timestamp recorded on it at creation is what separates the two.
+ */
+async function sweepStalePerRunDatabases(pool: pg.Pool): Promise<void> {
+  const { rows } = await pool.query<{ datname: string; created_at: string | null }>(
+    `select d.datname, shobj_description(d.oid, 'pg_database') as created_at
+       from pg_database d
+      where d.datname ~ $1
+        and not exists (select 1 from pg_stat_activity a where a.datname = d.datname)`,
+    [PER_RUN_DATABASE_PATTERN],
+  );
+
+  const cutoff = Date.now() - STALE_AFTER_MS;
+
+  for (const row of rows) {
+    const createdAt = row.created_at === null ? Number.NaN : Date.parse(row.created_at);
+    // An unreadable or missing timestamp means the database predates this
+    // convention, so it is stale by definition.
+    if (Number.isFinite(createdAt) && createdAt > cutoff) continue;
+    try {
+      await dropDatabase(pool, row.datname);
+    } catch {
+      // Best effort: failing here would fail a test run over leftovers that
+      // are not this run's problem.
+    }
+  }
+}
+
+/** Drop a per-run database and close the connection that created it. */
+async function dropPerRunDatabase(
+  admin: { pool: pg.Pool; database: string } | undefined,
+): Promise<void> {
+  if (admin === undefined) return;
+  try {
+    await dropDatabase(admin.pool, admin.database);
+  } finally {
+    await admin.pool.end();
+  }
+}
+
 /**
  * Start Postgres 16, run `db/migrations` against it, and hand back a Kysely
  * instance.
  *
  * Normally this starts a throwaway container. If TEST_DATABASE_URL is set it
- * uses that database instead, which is the only way to run these tests where a
+ * uses that server instead, which is the only way to run these tests where a
  * Docker daemon is unavailable. CI leaves it unset, so CI always exercises the
  * container path.
  *
  * A database supplied that way must be a Postgres 16 whose name ends in
  * `_test`; anything else is refused before a single migration runs.
+ *
+ * Either way, every call gets a database of its own: the container path by
+ * definition, and the TEST_DATABASE_URL path because we create a throwaway
+ * database on that server and drop it in `stop()`. Vitest runs test files in
+ * parallel, so sharing one database across them makes any assertion about
+ * global state — a row count, "these are all the accounts" — depend on which
+ * other files happen to be running. That failed locally while CI stayed green,
+ * because CI gives each file its own container. Now both paths agree.
  */
 export async function startTestPostgres(): Promise<TestPostgres> {
   const existing = process.env["TEST_DATABASE_URL"];
 
   let container: StartedPostgreSqlContainer | undefined;
   let connectionString: string;
+  // Set only on the TEST_DATABASE_URL path: the server we created the per-run
+  // database on, and therefore the one that has to drop it again.
+  let admin: { pool: pg.Pool; database: string } | undefined;
 
   if (existing !== undefined && existing !== "") {
-    connectionString = existing;
+    // Check the supplied database before creating anything on its server: an
+    // unsafe TEST_DATABASE_URL must be refused, not merely worked around.
+    const adminPool = new pg.Pool({ connectionString: existing });
+    let database: string;
+    try {
+      await assertUsableTestDatabaseVia(adminPool);
+      await sweepStalePerRunDatabases(adminPool);
+      const { rows } = await adminPool.query<{ name: string }>("select current_database() as name");
+      database = perRunDatabaseName(rows[0]?.name ?? "raices");
+      await adminPool.query(`create database "${database}"`);
+      // Stamped so a later sweep can tell this apart from a database that a
+      // test file running in parallel created seconds ago and is still using.
+      await adminPool.query(`comment on database "${database}" is '${new Date().toISOString()}'`);
+    } catch (error) {
+      await adminPool.end();
+      throw error;
+    }
+    admin = { pool: adminPool, database };
+    connectionString = withDatabase(existing, database);
   } else {
     try {
       container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
@@ -127,14 +261,12 @@ export async function startTestPostgres(): Promise<TestPostgres> {
   const pool = new pg.Pool({ connectionString });
 
   try {
-    // Only an externally supplied database has to prove itself. The container
-    // above was created here, and its default database is not named "*_test".
-    if (container === undefined) {
-      await assertUsableTestDatabaseVia(pool);
-    }
+    // An externally supplied database proved itself above, before its server
+    // was touched; the container was created here and needs no such proof.
     await applyMigrations(pool);
   } catch (error) {
     await pool.end();
+    await dropPerRunDatabase(admin);
     throw error;
   }
 
@@ -161,18 +293,21 @@ export async function startTestPostgres(): Promise<TestPostgres> {
         await close();
       }
       await pool.end();
+
+      // pg.Pool.end() resolves once pg-pool's bookkeeping is drained, not
+      // once the TCP sockets are actually closed. Both paths below have to
+      // wait for the server to report no remaining backends first: stopping
+      // the container or dropping the database inside that window makes
+      // Postgres send FATAL 57P01 to the half-closed connections, pg emit
+      // unhandled 'error' events, and Vitest fail a run in which every test
+      // passed. This covers pools created directly by test files too, which
+      // the harness never sees.
+      await waitForBackendsToDrain(connectionString);
+
       if (container !== undefined) {
-        // pg.Pool.end() resolves once pg-pool's bookkeeping is drained, not
-        // once the TCP sockets are actually closed. If the container stops in
-        // that window, Postgres sends FATAL 57P01 to the half-closed
-        // connections, pg emits unhandled 'error' events, and Vitest fails
-        // the run even though every test passed. Wait for the server itself
-        // to report no remaining backends before stopping the container.
-        // This covers pools created directly by test files too, which the
-        // harness never sees.
-        await waitForBackendsToDrain(connectionString);
         await container.stop();
       }
+      await dropPerRunDatabase(admin);
     },
   };
 }
