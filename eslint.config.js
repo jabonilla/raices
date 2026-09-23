@@ -2,6 +2,8 @@ import eslint from "@eslint/js";
 import prettier from "eslint-config-prettier";
 import tseslint from "typescript-eslint";
 
+import mobileA11y from "./eslint-plugins/mobile-a11y.js";
+
 export default tseslint.config(
   {
     ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**"],
@@ -41,6 +43,26 @@ export default tseslint.config(
           selector:
             "CallExpression[callee.object.name='Number'][callee.property.name='parseFloat']",
           message: "Number.parseFloat produces a float. Parse money with fromMajorString instead.",
+        },
+      ],
+    },
+  },
+  {
+    // Mobile accessibility baseline (K2.7). Many users are on older phones
+    // with large system fonts, so these are lint errors, not suggestions:
+    //  - every Pressable/Touchable* needs an accessibility label
+    //  - never disable OS font scaling on Text
+    files: ["apps/mobile/**/*.tsx", "apps/mobile/**/*.jsx"],
+    plugins: { "mobile-a11y": mobileA11y },
+    rules: {
+      "mobile-a11y/require-accessibility-label": "error",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXAttribute[name.name='allowFontScaling']",
+          message:
+            "Do not set allowFontScaling. Text must scale with the OS font-size " +
+            "setting (K2.7 accessibility baseline).",
         },
       ],
     },
