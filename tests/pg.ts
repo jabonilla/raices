@@ -162,8 +162,57 @@ export async function startTestPostgres(): Promise<TestPostgres> {
       }
       await pool.end();
       if (container !== undefined) {
+        // pg.Pool.end() resolves once pg-pool's bookkeeping is drained, not
+        // once the TCP sockets are actually closed. If the container stops in
+        // that window, Postgres sends FATAL 57P01 to the half-closed
+        // connections, pg emits unhandled 'error' events, and Vitest fails
+        // the run even though every test passed. Wait for the server itself
+        // to report no remaining backends before stopping the container.
+        // This covers pools created directly by test files too, which the
+        // harness never sees.
+        await waitForBackendsToDrain(connectionString);
         await container.stop();
       }
     },
   };
+}
+
+/**
+ * Block until the database reports no connected backends besides our own
+ * probe, or throw after a timeout.
+ *
+ * A raw pg.Client is used deliberately: unlike pg.Pool.end(), Client.end()
+ * resolves on the connection 'end' event, i.e. once the socket is really
+ * closed, so after this returns there is genuinely nothing left for
+ * container.stop() to kill mid-close.
+ */
+async function waitForBackendsToDrain(connectionString: string): Promise<void> {
+  const probe = new pg.Client({ connectionString });
+  // The probe is harness infrastructure, not test code: a 57P01 arriving
+  // while the container stops is expected, so it must not become an
+  // unhandled error. Test pools keep their strictness — no handler is
+  // attached to them.
+  probe.on("error", () => {});
+  await probe.connect();
+  try {
+    const deadline = Date.now() + 15_000;
+    for (;;) {
+      const { rows } = await probe.query<{ count: string }>(
+        "select count(*)::text as count from pg_stat_activity " +
+          "where datname = current_database() and pid <> pg_backend_pid()",
+      );
+      if (rows[0]?.count === "0") {
+        return;
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(
+          "Timed out waiting for test database connections to drain " +
+            "before stopping the container",
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  } finally {
+    await probe.end();
+  }
 }
