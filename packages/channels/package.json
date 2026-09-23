@@ -1,0 +1,10 @@
+{
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "name": "@raices/channels",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0"
+}
