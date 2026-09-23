@@ -1,22 +1,26 @@
 import { StatusBar } from "expo-status-bar";
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import "../src/i18n";
 import { tokens } from "../src/theme/tokens";
 
 export default function Index(): JSX.Element {
+  const { t } = useTranslation();
+  const getStarted = t("app.getStarted");
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Raíces</Text>
+      <Text style={styles.title}>{t("app.name")}</Text>
       <Pressable
-        accessibilityLabel="Get started"
+        accessibilityLabel={getStarted}
         accessibilityRole="button"
         style={styles.button}
         onPress={() => {
           // Placeholder: real navigation arrives with later tickets.
         }}
       >
-        <Text style={styles.buttonText}>Get started</Text>
+        <Text style={styles.buttonText}>{getStarted}</Text>
       </Pressable>
       <StatusBar style="auto" />
     </View>
