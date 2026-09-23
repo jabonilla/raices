@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { checkDatabaseReady } from "./health.js";
 import { createPool } from "./db/index.js";
 import { NotFoundError, toApiError } from "./errors.js";
+import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
 import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
 
 export interface HealthResponse {
@@ -16,7 +17,17 @@ export interface ReadyResponse {
 
 const REQUEST_ID_HEADER = "x-request-id";
 
-export function buildApp(): FastifyInstance {
+/** Largest JSON body the API will parse: 256 KiB. Anything bigger is a 413. */
+export const MAX_JSON_BODY_BYTES = 256 * 1024;
+
+export interface BuildAppOptions {
+  /** Max requests per rate-limit window, per client IP. Defaults to 600. */
+  readonly rateLimitMax?: number;
+  /** Rate-limit window length in ms. Defaults to one minute. */
+  readonly rateLimitWindowMs?: number;
+}
+
+export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const isProduction = process.env.NODE_ENV === "production";
 
   const loggerOptions: Record<string, unknown> = {
@@ -45,6 +56,17 @@ export function buildApp(): FastifyInstance {
       }
       return randomUUID();
     },
+    // Cap parsed bodies so a huge payload cannot exhaust the process.
+    bodyLimit: MAX_JSON_BODY_BYTES,
+    // Client IPs come from X-Forwarded-For: the app runs behind the
+    // platform edge, which sets it. See hardening.ts for the caveat.
+    trustProxy: true,
+  });
+
+  registerSecurityHeaders(app);
+  registerRateLimit(app, {
+    max: options.rateLimitMax ?? 600,
+    windowMs: options.rateLimitWindowMs ?? 60_000,
   });
 
   // Echo the request ID in the response header, and ensure it's on
