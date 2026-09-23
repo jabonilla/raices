@@ -21,7 +21,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@raices/money": ["packages/money/src/index.ts"]
+      "@raices/money": ["packages/money/src/index.ts"],
+      "@raices/settlement": ["packages/settlement/src/index.ts"]
     }
   }
 }
