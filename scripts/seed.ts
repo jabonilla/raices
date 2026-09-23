@@ -32,43 +32,57 @@ const TRANSFER_AMOUNT_MINOR = 2500;
 export async function seedFixtures(pool: pg.Pool): Promise<void> {
   await applyMigrations(pool);
 
-  await pool.query(
-    `insert into ledger_account (id, code, type, currency)
+  // One transaction: the ledger_transaction_has_entries trigger is deferred
+  // to commit, so the transaction row and its entries must commit together.
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+
+    await client.query(
+      `insert into ledger_account (id, code, type, currency)
        values
          ($1, 'settlement:usd', 'asset', 'USD'),
          ($2, 'recipient:maria', 'liability', 'USD')
        on conflict (id) do nothing`,
-    [SETTLEMENT_ACCOUNT_ID, RECIPIENT_ACCOUNT_ID],
-  );
+      [SETTLEMENT_ACCOUNT_ID, RECIPIENT_ACCOUNT_ID],
+    );
 
-  await pool.query(
-    `insert into ledger_transaction
+    await client.query(
+      `insert into ledger_transaction
          (id, idempotency_key, request_hash, description, occurred_at)
        values
          ($1, 'seed-transfer-1', 'seed', 'Maria remittance (seed fixture)', now())
        on conflict (id) do nothing`,
-    [TRANSFER_TXN_ID],
-  );
+      [TRANSFER_TXN_ID],
+    );
 
-  // Debits must equal credits within each currency (database trigger), so
-  // both legs are USD. Entry IDs are fixed so re-running the seed inserts
-  // nothing new.
-  await pool.query(
-    `insert into ledger_entry
+    // Debits must equal credits within each currency (database trigger), so
+    // both legs are USD. Entry IDs are fixed so re-running the seed inserts
+    // nothing new.
+    await client.query(
+      `insert into ledger_entry
          (id, transaction_id, account_id, direction, amount_minor, currency, entry_type)
        values
          ($1, $3, $4, 'debit', $6, 'USD', 'transfer'),
          ($2, $3, $5, 'credit', $6, 'USD', 'transfer')
        on conflict (id) do nothing`,
-    [
-      DEBIT_ENTRY_ID,
-      CREDIT_ENTRY_ID,
-      TRANSFER_TXN_ID,
-      SETTLEMENT_ACCOUNT_ID,
-      RECIPIENT_ACCOUNT_ID,
-      TRANSFER_AMOUNT_MINOR,
-    ],
-  );
+      [
+        DEBIT_ENTRY_ID,
+        CREDIT_ENTRY_ID,
+        TRANSFER_TXN_ID,
+        SETTLEMENT_ACCOUNT_ID,
+        RECIPIENT_ACCOUNT_ID,
+        TRANSFER_AMOUNT_MINOR,
+      ],
+    );
+
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 
   const { rows } = await pool.query<{ count: string }>(
     "select count(*) as count from ledger_entry",
