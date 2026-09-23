@@ -80,6 +80,10 @@ export default defineConfig({
           root: "./tests/guardrails",
           environment: "node",
           include: ["**/*.test.ts"],
+          // Loading the repo's real eslint.config.js with type-aware
+          // linting is far slower than an inline config. Each test spins up
+          // a fresh ESLint instance, so give them room. (K2.8 fix)
+          testTimeout: 60_000,
         },
       },
     ],
