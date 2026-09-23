@@ -22,7 +22,11 @@ export default tseslint.config(
     // Money paths never coerce through floats. Number(...) and parseFloat are
     // how a bigint minor unit quietly becomes a rounded double, so they are
     // banned outright here rather than left to review (CLAUDE.md rule 1).
-    files: ["packages/money/**/*.ts", "apps/api/src/ledger/**/*.ts"],
+    files: [
+      "packages/money/**/*.ts",
+      "apps/api/src/ledger/**/*.ts",
+      "apps/api/src/reconciliation/**/*.ts",
+    ],
     rules: {
       "no-restricted-syntax": [
         "error",
