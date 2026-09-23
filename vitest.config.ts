@@ -59,7 +59,7 @@ export default defineConfig({
           name: "mobile",
           root: "./apps/mobile",
           environment: "jsdom",
-          include: ["test/**/*.test.tsx"],
+          include: ["test/**/*.test.{ts,tsx}"],
         },
       },
       {
