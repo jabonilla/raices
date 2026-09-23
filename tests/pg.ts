@@ -112,18 +112,83 @@ export interface TestPostgres {
   stop(): Promise<void>;
 }
 
+/** Per-run databases this module creates, by name. */
+const PER_RUN_DATABASE_PATTERN = "_[0-9a-f]{12}_test$";
+
+/** How long a per-run database must be idle before the sweep reclaims it. */
+const STALE_AFTER_MS = 30 * 60 * 1000;
+
+/** SQLSTATE 55006 object_in_use: something is still connected to the database. */
+const OBJECT_IN_USE = "55006";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
- * Drop a per-run database and close the connection that created it.
+ * Drop a database, waiting briefly for stragglers to disconnect.
  *
- * `with (force)` because a pool that failed to close cleanly would otherwise
- * keep the database alive and leak it onto the developer's server.
+ * Deliberately not `with (force)`. Forcing sends SIGTERM to whatever is still
+ * connected, and a pooled client killed while idle surfaces as an unhandled
+ * error in the test run rather than a clean teardown. A pool occasionally has
+ * not finished closing by the time its owning test file resolves, so we wait
+ * it out instead; anything still held afterwards is left for the sweep at the
+ * next run's startup, which is a delay rather than a leak.
  */
+async function dropDatabase(pool: pg.Pool, database: string): Promise<boolean> {
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    try {
+      await pool.query(`drop database if exists "${database}"`);
+      return true;
+    } catch (error) {
+      const code: unknown = (error as { code?: unknown }).code;
+      if (code !== OBJECT_IN_USE) throw error;
+      await sleep(50);
+    }
+  }
+  return false;
+}
+
+/**
+ * Reclaim per-run databases abandoned by an earlier run.
+ *
+ * Only databases with nothing connected are considered, and of those only the
+ * ones old enough that no test file could still be using them: a database
+ * created moments ago belongs to a sibling running in parallel right now. The
+ * timestamp recorded on it at creation is what separates the two.
+ */
+async function sweepStalePerRunDatabases(pool: pg.Pool): Promise<void> {
+  const { rows } = await pool.query<{ datname: string; created_at: string | null }>(
+    `select d.datname, shobj_description(d.oid, 'pg_database') as created_at
+       from pg_database d
+      where d.datname ~ $1
+        and not exists (select 1 from pg_stat_activity a where a.datname = d.datname)`,
+    [PER_RUN_DATABASE_PATTERN],
+  );
+
+  const cutoff = Date.now() - STALE_AFTER_MS;
+
+  for (const row of rows) {
+    const createdAt = row.created_at === null ? Number.NaN : Date.parse(row.created_at);
+    // An unreadable or missing timestamp means the database predates this
+    // convention, so it is stale by definition.
+    if (Number.isFinite(createdAt) && createdAt > cutoff) continue;
+    try {
+      await dropDatabase(pool, row.datname);
+    } catch {
+      // Best effort: failing here would fail a test run over leftovers that
+      // are not this run's problem.
+    }
+  }
+}
+
+/** Drop a per-run database and close the connection that created it. */
 async function dropPerRunDatabase(
   admin: { pool: pg.Pool; database: string } | undefined,
 ): Promise<void> {
   if (admin === undefined) return;
   try {
-    await admin.pool.query(`drop database if exists "${admin.database}" with (force)`);
+    await dropDatabase(admin.pool, admin.database);
   } finally {
     await admin.pool.end();
   }
@@ -165,9 +230,13 @@ export async function startTestPostgres(): Promise<TestPostgres> {
     let database: string;
     try {
       await assertUsableTestDatabaseVia(adminPool);
+      await sweepStalePerRunDatabases(adminPool);
       const { rows } = await adminPool.query<{ name: string }>("select current_database() as name");
       database = perRunDatabaseName(rows[0]?.name ?? "raices");
       await adminPool.query(`create database "${database}"`);
+      // Stamped so a later sweep can tell this apart from a database that a
+      // test file running in parallel created seconds ago and is still using.
+      await adminPool.query(`comment on database "${database}" is '${new Date().toISOString()}'`);
     } catch (error) {
       await adminPool.end();
       throw error;
