@@ -130,10 +130,12 @@ function sleep(ms: number): Promise<void> {
  *
  * Deliberately not `with (force)`. Forcing sends SIGTERM to whatever is still
  * connected, and a pooled client killed while idle surfaces as an unhandled
- * error in the test run rather than a clean teardown. A pool occasionally has
- * not finished closing by the time its owning test file resolves, so we wait
- * it out instead; anything still held afterwards is left for the sweep at the
- * next run's startup, which is a delay rather than a leak.
+ * error in the test run rather than a clean teardown.
+ *
+ * `stop()` waits for the backends to drain before calling this, so the first
+ * attempt normally succeeds. The retry is a safety net for a connection that
+ * outlives that wait; anything still held afterwards is left for the sweep at
+ * the next run's startup, which is a delay rather than a leak.
  */
 async function dropDatabase(pool: pg.Pool, database: string): Promise<boolean> {
   for (let attempt = 1; attempt <= 20; attempt += 1) {
@@ -291,16 +293,18 @@ export async function startTestPostgres(): Promise<TestPostgres> {
         await close();
       }
       await pool.end();
+
+      // pg.Pool.end() resolves once pg-pool's bookkeeping is drained, not
+      // once the TCP sockets are actually closed. Both paths below have to
+      // wait for the server to report no remaining backends first: stopping
+      // the container or dropping the database inside that window makes
+      // Postgres send FATAL 57P01 to the half-closed connections, pg emit
+      // unhandled 'error' events, and Vitest fail a run in which every test
+      // passed. This covers pools created directly by test files too, which
+      // the harness never sees.
+      await waitForBackendsToDrain(connectionString);
+
       if (container !== undefined) {
-        // pg.Pool.end() resolves once pg-pool's bookkeeping is drained, not
-        // once the TCP sockets are actually closed. If the container stops in
-        // that window, Postgres sends FATAL 57P01 to the half-closed
-        // connections, pg emits unhandled 'error' events, and Vitest fails
-        // the run even though every test passed. Wait for the server itself
-        // to report no remaining backends before stopping the container.
-        // This covers pools created directly by test files too, which the
-        // harness never sees.
-        await waitForBackendsToDrain(connectionString);
         await container.stop();
       }
       await dropPerRunDatabase(admin);
