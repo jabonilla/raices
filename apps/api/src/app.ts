@@ -6,6 +6,7 @@ import { createPool } from "./db/index.js";
 import { NotFoundError, toApiError } from "./errors.js";
 import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
 import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
+import { buildOpenApiDocument } from "./openapi.js";
 
 export interface HealthResponse {
   readonly ok: true;
@@ -122,6 +123,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         // Ignore pool shutdown errors; we're already responding.
       });
     }
+  });
+
+  // /openapi.json: the API contract, generated at runtime from the Zod
+  // schemas. Served as JSON; see src/openapi.ts.
+  app.get("/openapi.json", () => {
+    return buildOpenApiDocument();
   });
 
   return app;
