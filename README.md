@@ -9,7 +9,7 @@ This repository holds the API, the sender app, the ledger, and the shared money/
 ```
 apps/api/          Fastify service: ledger writes, reconciliation, health probes
 apps/api/src/db/          Postgres access (Kysely), serializable-tx helper
-apps/api/src/ledger/      post(), balance() — the only ledger write path
+apps/api/src/ledger/      post(), balance() — ledger posting and balance logic
 apps/api/src/reconciliation/  provider-statement reconciliation
 apps/mobile/       Expo (React Native) sender app
 packages/money/    Money type: bigint minor units + ISO 4217 code. No floats.
