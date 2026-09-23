@@ -143,6 +143,39 @@ let cashGtq: string;
 let revenueGtq: string;
 let seededTransaction: string;
 
+/**
+ * Counts scoped to this run's own accounts.
+ *
+ * "Writes nothing" is the claim under test. A global count also moves when
+ * another test file shares the database, which is what happens locally via
+ * TEST_DATABASE_URL, where vitest runs files in parallel. In CI each file
+ * gets its own container, so this only ever bit the local `make verify`.
+ */
+function ourAccounts(): string[] {
+  return [cashUsd, revenueUsd, cashGtq, revenueGtq];
+}
+
+async function ourEntryCount(): Promise<number> {
+  return withClient(async (client) => {
+    const r = await client.query<{ n: number }>(
+      "select count(*)::int as n from ledger_entry where account_id = any($1::uuid[])",
+      [ourAccounts()],
+    );
+    return r.rows[0]?.n ?? 0;
+  });
+}
+
+async function ourTransactionCount(): Promise<number> {
+  return withClient(async (client) => {
+    const r = await client.query<{ n: number }>(
+      `select count(distinct transaction_id)::int as n
+         from ledger_entry where account_id = any($1::uuid[])`,
+      [ourAccounts()],
+    );
+    return r.rows[0]?.n ?? 0;
+  });
+}
+
 beforeAll(async () => {
   pgx = await startTestPostgres();
 
@@ -289,10 +322,7 @@ describe("balance enforced at the database, at commit", () => {
   });
 
   it("writes nothing when the commit is rejected", async () => {
-    const before = await withClient(async (client) => {
-      const r = await client.query<{ n: number }>("select count(*)::int as n from ledger_entry");
-      return r.rows[0]?.n ?? 0;
-    });
+    const before = await ourEntryCount();
 
     await expect(
       postTransaction([
@@ -301,10 +331,7 @@ describe("balance enforced at the database, at commit", () => {
       ]),
     ).rejects.toThrow();
 
-    const after = await withClient(async (client) => {
-      const r = await client.query<{ n: number }>("select count(*)::int as n from ledger_entry");
-      return r.rows[0]?.n ?? 0;
-    });
+    const after = await ourEntryCount();
 
     expect(after).toBe(before);
   });
@@ -403,12 +430,7 @@ describe("a transaction must have entries", () => {
   });
 
   it("writes no transaction row when that commit is rejected", async () => {
-    const before = await withClient(async (client) => {
-      const r = await client.query<{ n: number }>(
-        "select count(*)::int as n from ledger_transaction",
-      );
-      return r.rows[0]?.n ?? 0;
-    });
+    const before = await ourTransactionCount();
 
     await withClient(async (client) => {
       await client.query("begin");
@@ -424,12 +446,7 @@ describe("a transaction must have entries", () => {
       }
     });
 
-    const after = await withClient(async (client) => {
-      const r = await client.query<{ n: number }>(
-        "select count(*)::int as n from ledger_transaction",
-      );
-      return r.rows[0]?.n ?? 0;
-    });
+    const after = await ourTransactionCount();
 
     expect(after).toBe(before);
   });
