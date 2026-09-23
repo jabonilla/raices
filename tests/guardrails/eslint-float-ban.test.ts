@@ -23,6 +23,8 @@ const REPO_ROOT = process.cwd();
 // Paths the float ban config covers (must match eslint.config.js `files`).
 const MONEY_DIR = join(REPO_ROOT, "packages/money/src");
 const LEDGER_DIR = join(REPO_ROOT, "apps/api/src/ledger");
+// Reconciliation compares money amounts too, so it is inside the ban.
+const RECON_DIR = join(REPO_ROOT, "apps/api/src/reconciliation");
 // Path outside the float ban scope — the rule must NOT fire here.
 const OUTSIDE_DIR = join(REPO_ROOT, "apps/api/src");
 
@@ -73,6 +75,7 @@ describe("guardrail: float ban in money paths", () => {
   for (const [dirName, dir] of [
     ["packages/money/src", MONEY_DIR],
     ["apps/api/src/ledger", LEDGER_DIR],
+    ["apps/api/src/reconciliation", RECON_DIR],
   ] as const) {
     for (const [name, code] of Object.entries(FIXTURES)) {
       it(`reports an error for ${name} in ${dirName}`, async () => {
