@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
+import { assertSafeDatabase } from "./db-guard.js";
+
 export const MIGRATIONS_DIR = fileURLToPath(new URL("../db/migrations", import.meta.url));
 
 export interface AppliedMigration {
@@ -96,6 +98,9 @@ async function main(): Promise<void> {
   if (connectionString === undefined || connectionString === "") {
     throw new Error("DATABASE_URL is not set. Copy .env.example and fill it in.");
   }
+  // Refuse to migrate a database whose name does not end in _test or _dev.
+  // This is the last line of defense against a mispointed DATABASE_URL.
+  assertSafeDatabase(connectionString);
 
   const pool = new pg.Pool({ connectionString });
   try {
