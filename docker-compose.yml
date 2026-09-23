@@ -1,0 +1,20 @@
+# Local development database. Postgres 16, matching CI and production.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: raices
+      POSTGRES_PASSWORD: raices
+      POSTGRES_DB: raices_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raices -d raices_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
