@@ -1,7 +1,9 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { randomUUID } from "node:crypto";
 
 import { checkDatabaseReady } from "./health.js";
 import { createPool } from "./db/index.js";
+import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
 
 export interface HealthResponse {
   readonly ok: true;
@@ -11,8 +13,47 @@ export interface ReadyResponse {
   readonly ok: boolean;
 }
 
+const REQUEST_ID_HEADER = "x-request-id";
+
 export function buildApp(): FastifyInstance {
-  const app = Fastify({ logger: false });
+  const isProduction = process.env.NODE_ENV === "production";
+
+  const loggerOptions: Record<string, unknown> = {
+    level: isProduction ? "info" : "debug",
+    redact: REDACT_OPTIONS,
+    // Defense in depth: pino's redact paths only match fixed depths
+    // ("*.phone" covers exactly one level). The log formatter walks every
+    // logged object recursively and censors deny-listed keys at any depth.
+    formatters: { log: censorSensitiveKeys },
+  };
+  // JSON in prod, pretty in dev.
+  if (!isProduction) {
+    loggerOptions.transport = {
+      target: "pino-pretty",
+      options: { colorize: true },
+    };
+  }
+
+  const app = Fastify({
+    logger: loggerOptions,
+    // Generate a request ID if the client didn't send one.
+    genReqId: (req) => {
+      const header = req.headers[REQUEST_ID_HEADER];
+      if (typeof header === "string" && header.length > 0) {
+        return header;
+      }
+      return randomUUID();
+    },
+  });
+
+  // Echo the request ID in the response header, and ensure it's on
+  // every log line for the request via the child logger.
+  app.addHook("onRequest", (request, reply, done) => {
+    const requestId = request.id;
+    reply.header(REQUEST_ID_HEADER, requestId);
+    request.log = request.log.child({ requestId });
+    done();
+  });
 
   // /health: process is up. No dependencies checked.
   app.get("/health", (): HealthResponse => {
