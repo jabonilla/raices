@@ -28,6 +28,21 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # The database tests pull postgres:16-alpine through Testcontainers on
+      # every run. Cache the image as a tarball so warm runs skip the pull.
+      - name: Cache Postgres image
+        uses: actions/cache@v4
+        with:
+          path: /tmp/postgres-16-alpine.tar
+          key: postgres-16-alpine-v1
+
+      - name: Load cached Postgres image
+        run: |
+          if [ -f /tmp/postgres-16-alpine.tar ]; then
+            docker load -i /tmp/postgres-16-alpine.tar
+          fi
+          docker pull postgres:16-alpine
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -35,3 +50,17 @@ jobs:
       # Testcontainers path, not a pre-provisioned database.
       - name: make verify
         run: make verify
+
+      # Coverage thresholds (K2.12): high for packages/money and
+      # apps/api/src/ledger, modest elsewhere. If a threshold fails, raise
+      # coverage — never lower the threshold to make CI pass.
+      - name: Coverage thresholds
+        run: pnpm test:coverage
+
+      # Flake detection (K2.12): run the whole suite twice in this job and
+      # fail if any test's result differs between the two runs.
+      - name: Flake detection — suite must be deterministic
+        run: pnpm test:determinism
+
+      - name: Save Postgres image to cache
+        run: docker save -o /tmp/postgres-16-alpine.tar postgres:16-alpine
