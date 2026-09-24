@@ -1,5 +1,8 @@
 {
-  "app": { "getStarted": "Get started", "name": "Raíces" },
+  "app": {
+    "getStarted": "Get started",
+    "name": "Raíces"
+  },
   "approval": {
     "approve": "Approve {{amount}}",
     "decline": "Not yet",
@@ -65,7 +68,11 @@
       "flagged": "To review",
       "pending": "Pending"
     },
-    "groups": { "thisWeek": "This week", "twoWeeksAgo": "2 weeks ago", "yesterday": "Yesterday" },
+    "groups": {
+      "thisWeek": "This week",
+      "twoWeeksAgo": "2 weeks ago",
+      "yesterday": "Yesterday"
+    },
     "title": "History",
     "emergencyCategory": "Emergency",
     "emergencyPurpose": "Medicine for mom",
@@ -98,6 +105,15 @@
     "recent2Category": "Uncategorized",
     "recent2Purpose": "Uncategorized payment",
     "recent2Amount": "$120.00"
+  },
+  "statusBadge": {
+    "approved": "✓ Sent",
+    "pending": "Waiting",
+    "flagged": "Needs review",
+    "emergency": "Urgent",
+    "declined": "On hold",
+    "failed": "Didn't arrive",
+    "statusLabel": "Status: {{status}}"
   },
   "tabs": {
     "assistant": "Assistant",

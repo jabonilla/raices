@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import i18n from "../src/i18n";
 import { Button } from "../src/components/Button";
 import { Card } from "../src/components/Card";
 import { CountBadge, StatusDot } from "../src/components/indicators";
@@ -79,7 +80,38 @@ describe("StatusBadge", () => {
   ] as const)("renders %s as %s", (status, copy) => {
     const { unmount } = render(<StatusBadge status={status} />);
     expect(screen.getByText(copy)).toBeTruthy();
+    expect(screen.getByLabelText(`Estado: ${copy}`)).toBeTruthy();
     unmount();
+  });
+
+  it("renders the English fallback when the locale is English", async () => {
+    await i18n.changeLanguage("en-US");
+    try {
+      const { unmount } = render(<StatusBadge status="failed" />);
+      expect(screen.getByText("Didn't arrive")).toBeTruthy();
+      expect(screen.getByLabelText("Status: Didn't arrive")).toBeTruthy();
+      unmount();
+    } finally {
+      await i18n.changeLanguage("es-US");
+    }
+  });
+
+  it("never hardcodes user-facing copy: every status resolves through locale keys", () => {
+    // If a status label ever falls back to a hardcoded string, the English
+    // test above fails — this pins the mechanism, not just the Spanish copy.
+    for (const status of [
+      "approved",
+      "pending",
+      "flagged",
+      "emergency",
+      "declined",
+      "failed",
+    ] as const) {
+      expect(i18n.exists(`statusBadge.${status}`, { lng: "es-US" })).toBe(true);
+      expect(i18n.exists(`statusBadge.${status}`, { lng: "en-US" })).toBe(true);
+    }
+    expect(i18n.exists("statusBadge.statusLabel", { lng: "es-US" })).toBe(true);
+    expect(i18n.exists("statusBadge.statusLabel", { lng: "en-US" })).toBe(true);
   });
 });
 

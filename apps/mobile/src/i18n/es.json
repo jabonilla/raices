@@ -1,5 +1,8 @@
 {
-  "app": { "getStarted": "Comenzar", "name": "Raíces" },
+  "app": {
+    "getStarted": "Comenzar",
+    "name": "Raíces"
+  },
   "approval": {
     "approve": "Aprobar {{amount}}",
     "decline": "Ahorita no",
@@ -65,7 +68,11 @@
       "flagged": "Para revisar",
       "pending": "Pendientes"
     },
-    "groups": { "thisWeek": "Esta semana", "twoWeeksAgo": "Hace 2 semanas", "yesterday": "Ayer" },
+    "groups": {
+      "thisWeek": "Esta semana",
+      "twoWeeksAgo": "Hace 2 semanas",
+      "yesterday": "Ayer"
+    },
     "title": "Historial",
     "emergencyCategory": "Emergencia",
     "emergencyPurpose": "Medicamento para mamá",
@@ -98,6 +105,15 @@
     "recent2Category": "Sin categoría",
     "recent2Purpose": "Pago sin categoría",
     "recent2Amount": "$120.00"
+  },
+  "statusBadge": {
+    "approved": "✓ Enviado",
+    "pending": "Esperando",
+    "flagged": "Para revisar",
+    "emergency": "Urgente",
+    "declined": "En pausa",
+    "failed": "No llegó",
+    "statusLabel": "Estado: {{status}}"
   },
   "tabs": {
     "assistant": "Asistente",
