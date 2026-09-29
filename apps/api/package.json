@@ -13,6 +13,12 @@
     "kysely": "^0.28.8",
     "pg": "^8.16.3",
     "pino": "^9.6.0",
-    "pino-pretty": "^13.0.0"
+    "pino-pretty": "^13.0.0",
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
   }
 }
