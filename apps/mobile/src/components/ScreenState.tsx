@@ -103,7 +103,11 @@ function StateBody({
   readonly onSecondaryPress?: (() => void) | undefined;
 }): JSX.Element {
   return (
-    <View style={styles.center} accessibilityLiveRegion="polite" accessibilityLabel={title}>
+    // Note: no accessibilityLabel on this container on purpose. Without
+    // accessible={true} the label is a no-op, and grouping the container
+    // would swallow the action buttons below. Title/body/button are
+    // announced individually in order (K2.23 audit).
+    <View style={styles.center} accessibilityLiveRegion="polite">
       {/* Glyphs are presentational stand-ins, like the existing category icons. */}
       <Text style={styles.glyph}>{glyph}</Text>
       <Text style={styles.title}>{title}</Text>
