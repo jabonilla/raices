@@ -5,7 +5,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsx scripts/build.ts",
+    "start": "node dist/index.mjs"
   },
   "dependencies": {
     "@raices/money": "workspace:*",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1"
+    "ajv-formats": "^3.0.1",
+    "esbuild": "^0.28.2"
   }
 }
