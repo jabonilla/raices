@@ -1,0 +1,8 @@
+{
+  "invitation": "TODO(copy): sin redactar — la hoja de copia no trae texto para plantillas de WhatsApp (issue #46). Slots: {{inviterName}}.",
+  "money_arrived": "TODO(copy): sin redactar — la hoja de copia no trae texto para plantillas de WhatsApp (issue #46). Slots: {{senderName}}, {{amount}}.",
+  "money_sent": "TODO(copy): sin redactar — la hoja de copia no trae texto para plantillas de WhatsApp (issue #46). Slots: {{senderName}}, {{amount}}.",
+  "request_approved": "TODO(copy): sin redactar — la hoja de copia no trae texto para plantillas de WhatsApp (issue #46). Slots: {{senderName}}, {{amount}}.",
+  "request_declined": "TODO(copy): sin redactar — la hoja de copia no trae texto para plantillas de WhatsApp (issue #46). El texto final debe aplazar (\"ahorita no\"), nunca rechazar. Slots: {{senderName}}, {{amount}}.",
+  "request_received": "TODO(copy): sin redactar — la hoja de copia no trae texto para plantillas de WhatsApp (issue #46). Slots: {{senderName}}, {{amount}}, {{purpose}}."
+}

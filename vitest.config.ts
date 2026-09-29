@@ -89,6 +89,14 @@ export default defineConfig({
         },
       },
       {
+        test: {
+          name: "templates",
+          root: "./packages/templates",
+          environment: "node",
+          include: ["test/**/*.test.ts"],
+        },
+      },
+      {
         // Root scripts (migrate, seed, guards): pure unit tests, no DB.
         test: {
           name: "scripts",
