@@ -61,7 +61,7 @@ docs/                PRD, briefs, ADRs, tickets
 
 ## Database rules
 
-- Every ledger write runs in `SERIALIZABLE` isolation through `withSerializableTx()`, which retries on SQLSTATE `40001` / `40P01` with jittered backoff, max 5 attempts.
+- Every ledger write runs in `SERIALIZABLE` isolation through `withSerializableTx()`, which retries on SQLSTATE `40001` / `40P01` with exponential backoff and full jitter until a wall-clock budget expires (default 2s, configurable per call). The budget is time, not a count of attempts: under contention the two are unrelated, and counting attempts makes a legitimate write fail because the host was busy (issue #44). Exhausting the budget raises `SerializationRetryExhausted`, which is retryable and maps to 503 — never a 500, and never swallowed.
 - The app role has no UPDATE, DELETE, or TRUNCATE grant on ledger tables. Triggers also reject them.
 - Order ledger history by `seq` (bigserial), never by `created_at`.
 - Timestamps are `timestamptz`, stored in UTC.

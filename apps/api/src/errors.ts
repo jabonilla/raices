@@ -1,3 +1,5 @@
+import { SerializationRetryExhausted } from "./db/serializable.js";
+
 /**
  * One error shape for every API response: a stable machine-readable code,
  * a human-readable message, and the request id the logs can be matched on.
@@ -16,7 +18,8 @@ export type ApiErrorCode =
   | "not_found"
   | "method_not_allowed"
   | "conflict"
-  | "rate_limited";
+  | "rate_limited"
+  | "unavailable";
 
 export interface ApiErrorBody {
   readonly error: {
@@ -73,6 +76,20 @@ export class ConflictError extends ApiError {
   }
 }
 
+/**
+ * The request was not applied and the caller may send it again.
+ *
+ * Distinct from a 500: nothing is broken and nothing was half-written, the
+ * database was simply too busy to serialize the transaction within its retry
+ * budget. Callers are expected to retry.
+ */
+export class ServiceUnavailableError extends ApiError {
+  constructor(message = "The service is busy. Please retry.") {
+    super("unavailable", message, 503);
+    this.name = "ServiceUnavailableError";
+  }
+}
+
 export class RateLimitedError extends ApiError {
   constructor(message = "Too many requests.") {
     super("rate_limited", message, 429);
@@ -109,6 +126,8 @@ function codeForStatus(statusCode: number): ApiErrorCode {
       return "conflict";
     case 429:
       return "rate_limited";
+    case 503:
+      return "unavailable";
     default:
       return "bad_request";
   }
@@ -137,6 +156,17 @@ export function toApiError(error: unknown, requestId: string): MappedApiError {
     return {
       statusCode: error.statusCode,
       body: envelope(error.code, error.message, requestId),
+    };
+  }
+  // A transaction that never serialized within its budget wrote nothing and
+  // can simply be sent again (issue #44). Letting it fall through to the
+  // generic 500 below would tell the caller the system is broken, when the
+  // correct answer is "busy, try again" — and would lose that distinction
+  // for anything upstream deciding whether a retry is safe.
+  if (error instanceof SerializationRetryExhausted) {
+    return {
+      statusCode: 503,
+      body: envelope("unavailable", "The service is busy. Please retry.", requestId),
     };
   }
   if (isZodLike(error)) {
