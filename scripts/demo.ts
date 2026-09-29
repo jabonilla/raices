@@ -19,7 +19,7 @@ import { execFileSync, spawn } from "node:child_process";
 
 const COMPOSE_DB_URL = "postgresql://raices:raices@localhost:5432/raices_dev";
 
-function run(cmd: string, args: string[], env?: NodeJS.ProcessEnv): void {
+function run(cmd: string, args: string[], env?: Record<string, string>): void {
   execFileSync(cmd, args, { stdio: "inherit", env: { ...process.env, ...env } });
 }
 
