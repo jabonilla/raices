@@ -4,20 +4,57 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import "../../src/i18n";
 import { Button } from "../components/Button";
+import { ScreenState, type ScreenContentState } from "../components/ScreenState";
 import { tokens } from "../theme/tokens";
 
 /**
  * 02 · Aprobación — bottom sheet shell. The highest-frequency critical
  * interaction: must complete in under 60 seconds, no scrolling for the core
  * decision. "Ahorita no" is a text link, never a button.
+ *
+ * `screenState` renders the loading / empty / error / offline shells (K2.21).
+ * The empty state ("nothing waiting") carries no action — one path forward
+ * only, and here there is nothing to do (cf. DS §13.4 notifications row).
+ * TODO(copy): approval.states.* are invented/adapted — the copy sheet and the
+ * DS specify no empty or error copy for Aprobación. Listed in the PR for
+ * Claude (copy owner).
  */
 
 // Copy sheet specifies 🛒 as the Comida category icon (like TransactionCard's
 // CATEGORY_ICON — icons are presentational, not localizable copy).
 const CATEGORY_ICON = "🛒";
 
-export function ApprovalScreen(): JSX.Element {
+export function ApprovalScreen({
+  screenState = "content",
+}: {
+  readonly screenState?: ScreenContentState;
+}): JSX.Element {
   const { t } = useTranslation();
+  if (screenState === "loading" || screenState === "offline") {
+    return <ScreenState kind={screenState} />;
+  }
+  if (screenState === "empty") {
+    return (
+      <ScreenState
+        kind="empty"
+        title={t("approval.states.emptyTitle")}
+        body={t("approval.states.emptyBody")}
+      />
+    );
+  }
+  if (screenState === "error") {
+    return (
+      <ScreenState
+        kind="error"
+        title={t("approval.states.errorTitle")}
+        body={t("states.errorBody")}
+        primaryLabel={t("states.retry")}
+        onPrimaryPress={() => {}}
+        secondaryLabel={t("states.askAi")}
+        onSecondaryPress={() => {}}
+      />
+    );
+  }
   const amount = t("approval.amount");
   return (
     <View style={styles.sheet}>
