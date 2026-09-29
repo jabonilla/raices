@@ -158,4 +158,36 @@ describe("POST /webhooks/channel (K2.28)", () => {
     const after = await post(inboundPayload("m-after-fuzz"));
     expect(after.statusCode).toBe(202);
   });
+
+  it("enforces rate limiting on the webhook route", async () => {
+    const limited = buildApp({
+      rateLimitMax: 2,
+      rateLimitWindowMs: 60_000,
+      webhooks: {
+        adapter: new FakeChannelAdapter({ channel: "fake" }),
+        verifier: new FakeSignatureVerifier(),
+        deduplicator: new InMemoryInboundDeduplicator(),
+      },
+    });
+    await limited.ready();
+    try {
+      const statuses: number[] = [];
+      for (let i = 0; i < 4; i += 1) {
+        const response = await limited.inject({
+          method: "POST",
+          url: "/webhooks/channel",
+          headers: {
+            "content-type": "application/json",
+            [WEBHOOK_SIGNATURE_HEADER]: SIGNATURE,
+          },
+          payload: JSON.stringify(inboundPayload(`m-rl-${i}`)),
+        });
+        statuses.push(response.statusCode);
+      }
+      expect(statuses.slice(0, 2)).toEqual([202, 202]);
+      expect(statuses.slice(2)).toEqual([429, 429]);
+    } finally {
+      await limited.close();
+    }
+  });
 });

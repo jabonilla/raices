@@ -77,7 +77,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   registerSecurityHeaders(app);
-  registerRateLimit(app, {
+  const checkRateLimit = registerRateLimit(app, {
     max: options.rateLimitMax ?? 600,
     windowMs: options.rateLimitWindowMs ?? 60_000,
   });
@@ -155,6 +155,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     adapter: options.webhooks?.adapter ?? new FakeChannelAdapter({ channel: "fake" }),
     verifier: options.webhooks?.verifier ?? new FakeSignatureVerifier(),
     deduplicator: options.webhooks?.deduplicator ?? new InMemoryInboundDeduplicator(),
+    rateLimitCheck: options.webhooks?.rateLimitCheck ?? checkRateLimit,
     handleEvent: options.webhooks?.handleEvent,
   });
 
