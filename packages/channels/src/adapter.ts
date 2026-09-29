@@ -19,6 +19,10 @@ import type {
  *   Delivery progress arrives later through `onDeliveryUpdate` handlers.
  * - `normalizeWebhook` never throws: unrecognized payloads become
  *   `{ type: "unknown" }` for the caller to log and ignore.
+ *   NOTE (issue #41): this is a convention today, not an enforced test. When
+ *   the first real channel adapter is wired, add a test that feeds malformed,
+ *   truncated, and hostile payloads through `normalizeWebhook` and asserts it
+ *   returns rather than throws.
  * - Inbound dispatch is idempotent by `providerMessageId`: the same provider
  *   message delivered twice (retried webhook, duplicate POST) reaches
  *   `onInbound` handlers at most once.
