@@ -60,7 +60,14 @@ export function TransactionCard({
     >
       <View style={styles.topRow}>
         <View style={styles.category}>
-          <Text accessibilityLabel={`Categoría: ${categoryLabel}`} style={styles.icon}>
+          {/*
+            Decorative glyph: the category name is announced by the adjacent
+            label text, so the icon is hidden from assistive tech to avoid a
+            double announcement (K2.23 audit). aria-hidden is the
+            cross-platform prop (iOS/Android map it to their native
+            equivalents; react-native-web renders it as aria-hidden).
+          */}
+          <Text aria-hidden style={styles.icon}>
             {CATEGORY_ICON[category]}
           </Text>
           <Text style={styles.categoryLabel}>{categoryLabel}</Text>
