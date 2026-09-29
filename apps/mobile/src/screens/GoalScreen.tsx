@@ -4,15 +4,52 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import "../../src/i18n";
 import { Card } from "../components/Card";
+import { ScreenState, type ScreenContentState } from "../components/ScreenState";
 import { tokens } from "../theme/tokens";
 
 /**
  * 03 · Mi Meta — static shell. Progress bars: tierra fill on arena track;
  * completed categories get a gold check; over-budget turns flagged.
  * Future stages render at 50% opacity.
+ *
+ * `screenState` renders the loading / empty / error / offline shells (K2.21).
+ * Empty copy is DS §13.4 verbatim.
+ * TODO(copy): goal.states.errorTitle is invented; the English translations
+ * are draft. Listed in the PR for Claude (copy owner).
  */
-export function GoalScreen(): JSX.Element {
+export function GoalScreen({
+  screenState = "content",
+}: {
+  readonly screenState?: ScreenContentState;
+}): JSX.Element {
   const { t } = useTranslation();
+  if (screenState === "loading" || screenState === "offline") {
+    return <ScreenState kind={screenState} />;
+  }
+  if (screenState === "empty") {
+    return (
+      <ScreenState
+        kind="empty"
+        title={t("goal.states.emptyTitle")}
+        body={t("goal.states.emptyBody")}
+        primaryLabel={t("goal.states.emptyAction")}
+        onPrimaryPress={() => {}}
+      />
+    );
+  }
+  if (screenState === "error") {
+    return (
+      <ScreenState
+        kind="error"
+        title={t("goal.states.errorTitle")}
+        body={t("states.errorBody")}
+        primaryLabel={t("states.retry")}
+        onPrimaryPress={() => {}}
+        secondaryLabel={t("states.askAi")}
+        onSecondaryPress={() => {}}
+      />
+    );
+  }
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t("goal.title")}</Text>

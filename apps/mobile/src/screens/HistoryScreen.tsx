@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import "../../src/i18n";
+import { ScreenState, type ScreenContentState } from "../components/ScreenState";
 import { TransactionCard } from "../components/TransactionCard";
 import { tokens } from "../theme/tokens";
 
@@ -11,9 +12,45 @@ type Filter = "all" | "approved" | "pending" | "flagged";
 /**
  * 04 · Historial — static shell. Filter pills are local UI state only;
  * filtering is visual (no backend). Declined renders at 60% opacity.
+ *
+ * `screenState` renders the loading / empty / error / offline shells (K2.21).
+ * Empty copy is DS §13.4 verbatim.
+ * TODO(copy): history.states.errorTitle is invented; the English translations
+ * are draft. Listed in the PR for Claude (copy owner).
  */
-export function HistoryScreen(): JSX.Element {
+export function HistoryScreen({
+  screenState = "content",
+}: {
+  readonly screenState?: ScreenContentState;
+}): JSX.Element {
   const { t } = useTranslation();
+  if (screenState === "loading" || screenState === "offline") {
+    return <ScreenState kind={screenState} />;
+  }
+  if (screenState === "empty") {
+    return (
+      <ScreenState
+        kind="empty"
+        title={t("history.states.emptyTitle")}
+        body={t("history.states.emptyBody")}
+        primaryLabel={t("history.states.emptyAction")}
+        onPrimaryPress={() => {}}
+      />
+    );
+  }
+  if (screenState === "error") {
+    return (
+      <ScreenState
+        kind="error"
+        title={t("history.states.errorTitle")}
+        body={t("states.errorBody")}
+        primaryLabel={t("states.retry")}
+        onPrimaryPress={() => {}}
+        secondaryLabel={t("states.askAi")}
+        onSecondaryPress={() => {}}
+      />
+    );
+  }
   const [filter, setFilter] = useState<Filter>("all");
   const filters: Filter[] = ["all", "approved", "pending", "flagged"];
   return (
