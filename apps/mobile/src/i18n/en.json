@@ -1,4 +1,46 @@
 {
+  "apiErrors": {
+    "internal_error": {
+      "title": "Something didn't work on our side.",
+      "body": "Try again in a few minutes. If it keeps happening, ask the assistant."
+    },
+    "invalid_request": {
+      "title": "Something in the information wasn't right.",
+      "body": "Check what you entered and try again."
+    },
+    "bad_request": {
+      "title": "We couldn't understand that request.",
+      "body": "Try again. If it keeps happening, ask the assistant."
+    },
+    "unauthorized": {
+      "title": "Your session ended.",
+      "body": "Sign in again to continue."
+    },
+    "forbidden": {
+      "title": "You don't have permission to do that.",
+      "body": "If that doesn't seem right, ask the assistant."
+    },
+    "not_found": {
+      "title": "We couldn't find what you were looking for.",
+      "body": "It may have been moved or deleted. Go back and try again."
+    },
+    "method_not_allowed": {
+      "title": "That action isn't available here.",
+      "body": "Go back and try a different option."
+    },
+    "conflict": {
+      "title": "It looks like this was already done.",
+      "body": "Check your history before trying again."
+    },
+    "rate_limited": {
+      "title": "Too many tries in a short time.",
+      "body": "Wait a minute and try again."
+    },
+    "unavailable": {
+      "title": "We're a bit busy right now.",
+      "body": "Nothing was lost — try again in a moment."
+    }
+  },
   "app": {
     "getStarted": "Get started",
     "name": "Raíces"

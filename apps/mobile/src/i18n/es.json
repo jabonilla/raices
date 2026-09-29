@@ -1,4 +1,46 @@
 {
+  "apiErrors": {
+    "internal_error": {
+      "title": "Algo no funcionó de nuestro lado.",
+      "body": "Intenta de nuevo en unos minutos. Si sigue pasando, pregúntale al asistente."
+    },
+    "invalid_request": {
+      "title": "Algo en la información no está bien.",
+      "body": "Revisa lo que ingresaste e intenta de nuevo."
+    },
+    "bad_request": {
+      "title": "No pudimos entender esa solicitud.",
+      "body": "Intenta de nuevo. Si sigue pasando, pregúntale al asistente."
+    },
+    "unauthorized": {
+      "title": "Tu sesión terminó.",
+      "body": "Inicia sesión de nuevo para continuar."
+    },
+    "forbidden": {
+      "title": "No tienes permiso para hacer eso.",
+      "body": "Si esto no te parece correcto, pregúntale al asistente."
+    },
+    "not_found": {
+      "title": "No encontramos lo que buscabas.",
+      "body": "Pudo haberse movido o eliminado. Regresa e intenta de nuevo."
+    },
+    "method_not_allowed": {
+      "title": "Esa acción no está disponible aquí.",
+      "body": "Regresa e intenta con otra opción."
+    },
+    "conflict": {
+      "title": "Parece que esto ya se hizo.",
+      "body": "Revisa tu historial antes de intentarlo de nuevo."
+    },
+    "rate_limited": {
+      "title": "Demasiados intentos en poco tiempo.",
+      "body": "Espera un minuto e intenta de nuevo."
+    },
+    "unavailable": {
+      "title": "Estamos un poco ocupados ahora mismo.",
+      "body": "No se perdió nada — intenta de nuevo en un momento."
+    }
+  },
   "app": {
     "getStarted": "Comenzar",
     "name": "Raíces"
