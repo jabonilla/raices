@@ -46,6 +46,15 @@ pnpm db:seed          # fixture data for local development
 
 `db:migrate` and `db:seed` refuse any database whose name does not end in `_test` or `_dev`.
 
+### Mobile bundle budget
+
+The Android production JS bundle must stay under **2,500,000 bytes** (2.38 MiB). The target user is often on an older Android with limited storage and metered data, so bundle size is a product constraint, not vanity.
+
+- Measured 2026-09-28: 1,928,525 bytes (1.84 MiB); budget = measured + ~30% headroom, rounded to a memorable number.
+- `pnpm check:bundle-budget` (also a CI step) exports the bundle with `expo export --platform android --no-bytecode` and fails if it exceeds the budget. `--no-bytecode` skips Hermes bytecode compilation — expo's hermesc lookup is broken for react-native 0.81 (it throws resolving the `hermes-compiler` package before trying the prebuilt binary react-native ships), and the minified JS is a stable, version-independent proxy for shipped size. Source maps are excluded; they do not ship to devices.
+- To re-measure: run `pnpm check:bundle-budget` and read the printed size.
+- To raise the budget: update `BUDGET_BYTES` in `scripts/check-bundle-budget.ts` and say why in the PR. Never bump it silently to make CI pass.
+
 ## Architecture
 
 The stack and the reasons behind it are recorded as ADRs:

@@ -33,7 +33,8 @@ describe("Button", () => {
     expect(onPress).not.toHaveBeenCalled();
 
     rerender(<Button variant="primary" label="A" onPress={onPress} loading />);
-    expect(screen.getByLabelText("Cargando")).toBeTruthy();
+    // K2.23: the spinner label is localized, not hardcoded Spanish.
+    expect(screen.getByLabelText("Cargando…")).toBeTruthy();
   });
 
   it("exposes an accessible label", () => {
