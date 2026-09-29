@@ -134,5 +134,57 @@
     "history": "History",
     "home": "Home",
     "send": "Send"
+  },
+  "phone": {
+    "countries": {
+      "GT": "Guatemala",
+      "US": "United States",
+      "MX": "Mexico",
+      "SV": "El Salvador",
+      "HN": "Honduras",
+      "ES": "Spain"
+    },
+    "countryLabel": "Country code: {{country}}",
+    "placeholder": "5550 1234",
+    "errors": {
+      "required": "Enter the phone number.",
+      "plus": "The number must start with + and the country code. Example: +502 5550 1234.",
+      "digits": "After the + only digits, no spaces or letters.",
+      "tooShort": "The number is too short. Check that it is complete.",
+      "tooLong": "The number is too long. International numbers have at most 15 digits."
+    }
+  },
+  "invite": {
+    "title": "Invite",
+    "nameLabel": "What do you call this person?",
+    "namePlaceholder": "Mom",
+    "phoneLabel": "Phone number",
+    "submit": "Send invitation",
+    "errors": {
+      "nameRequired": "Write what you call this person. That is what you will see in your list."
+    },
+    "inviteAnother": "Invite another person"
+  },
+  "relationships": {
+    "title": "People",
+    "status": {
+      "invited": "Invited",
+      "active": "Active",
+      "paused": "Paused",
+      "terminated": "Ended"
+    },
+    "statusLabel": "Status: {{status}}",
+    "expiresInDays": "Expires in {{count}} days",
+    "expiresInHours": "Expires in {{count}} hours",
+    "expired": "Expired",
+    "resend": "Resend invitation",
+    "phoneLabel": "Phone",
+    "invitedOn": "Invited on {{date}}",
+    "inviteAction": "Invite someone",
+    "resentOk": "Invitation resent.",
+    "emptyBody": "You have no people in your list yet. Invite someone to get started.",
+    "back": "Back",
+    "invitedLabel": "Invitation",
+    "statusRowLabel": "Status"
   }
 }

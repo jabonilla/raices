@@ -1,4 +1,11 @@
-import type { ApprovalData, AssistantData, GoalData, HistoryData, HomeData } from "./types";
+import type {
+  ApprovalData,
+  AssistantData,
+  GoalData,
+  HistoryData,
+  HomeData,
+  RelationshipsData,
+} from "./types";
 
 /**
  * ScreenDataProvider — the data-layer contract for the mobile screens (K2.24).
@@ -25,4 +32,6 @@ export interface ScreenDataProvider {
   getGoalData(): GoalData;
   getHistoryData(): HistoryData;
   getAssistantData(): AssistantData;
+  /** 06 · Relaciones (K2.27): this sender's relationships. */
+  getRelationshipsData(): RelationshipsData;
 }

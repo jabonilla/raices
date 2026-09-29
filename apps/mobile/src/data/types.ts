@@ -118,3 +118,35 @@ export interface AssistantData {
   readonly refCard: AssistantRefCard;
   readonly suggestions: readonly string[];
 }
+
+/**
+ * 06 · Relaciones (K2.27). Mirrors the P2.2 domain semantics:
+ * `app_user` + `relationship` with `RelationshipStatus`, and the invitation
+ * expiry derived as invitedAt + 14 days (db/migrations/0004).
+ *
+ * `displayName` is what THIS sender calls THIS recipient — a per-relationship
+ * name, not a global one. It is PII: it must never be written to a log, a
+ * telemetry span, or an analytics event. The data layer carries it; the UI
+ * renders it; nothing else touches it.
+ */
+
+/** Relationship lifecycle, per apps/api/src/relationships/schema.ts. */
+export type RelationshipStatus = "invited" | "active" | "paused" | "terminated";
+
+/** One relationship row: this sender's view of one recipient. */
+export interface RelationshipItem {
+  readonly id: string;
+  /** What this sender calls this recipient. PII — never logged. */
+  readonly displayName: string;
+  /** Recipient phone in E.164. */
+  readonly phoneE164: string;
+  readonly status: RelationshipStatus;
+  /** ISO-8601 instant the invitation was created. */
+  readonly invitedAtISO: string;
+  /** ISO-8601 instant the invitation expires: invitedAt + 14 days (P2.2). */
+  readonly expiresAtISO: string;
+}
+
+export interface RelationshipsData {
+  readonly relationships: readonly RelationshipItem[];
+}

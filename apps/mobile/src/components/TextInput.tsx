@@ -15,7 +15,7 @@ export interface TextInputProps {
   readonly value: string;
   readonly onChangeText: (text: string) => void;
   readonly placeholder?: string;
-  readonly error?: string;
+  readonly error?: string | undefined;
   readonly disabled?: boolean;
   readonly secureTextEntry?: boolean;
   readonly keyboardType?: "default" | "numeric" | "phone-pad";
