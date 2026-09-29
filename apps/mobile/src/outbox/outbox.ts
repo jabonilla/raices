@@ -1,4 +1,4 @@
-import type { OutboxEntry } from "./types.js";
+import type { OutboxEntry, OutboxSender } from "./types.js";
 
 /**
  * UUID v4 generator. Uses Math.random — these keys need uniqueness for
@@ -53,7 +53,7 @@ export class Outbox {
     this.loaded = true;
     const raw = await this.store.getItem(this.storageKey);
     if (raw === null) return;
-    const parsed: OutboxEntry[] = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as OutboxEntry[];
     this.entries = parsed.map((e) =>
       e.status === "sending" ? { ...e, status: "pending" as const } : e,
     );
@@ -92,9 +92,7 @@ export class Outbox {
    * a concurrent drain call waits for the in-flight one. Returns the number
    * of entries successfully sent.
    */
-  async drain(
-    sender: (entry: OutboxEntry) => Promise<{ ok: boolean; retryable: boolean }>,
-  ): Promise<number> {
+  async drain(sender: OutboxSender): Promise<number> {
     while (this.draining) {
       await new Promise((r) => setTimeout(r, 10));
     }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { InMemoryOutboxStore } from "../src/outbox/memoryStore.js";
 import { Outbox } from "../src/outbox/outbox.js";
-import type { OutboxEntry } from "../src/outbox/types.js";
+import type { OutboxEntry, OutboxSender } from "../src/outbox/types.js";
 
 const REQUEST = {
   method: "POST" as const,
@@ -10,7 +10,7 @@ const REQUEST = {
   body: { amountMinor: "2500", currency: "USD" },
 };
 
-const okSender = async (_entry?: OutboxEntry) => ({ ok: true as const, retryable: false });
+const okSender: OutboxSender = () => Promise.resolve({ ok: true as const, retryable: false });
 
 describe("Outbox (K2.31)", () => {
   it("generates the idempotency key at compose time, not at send time", async () => {
@@ -25,9 +25,9 @@ describe("Outbox (K2.31)", () => {
 
     // The key is stable: the sender receives the SAME key that enqueue returned.
     const seenKeys: string[] = [];
-    await outbox.drain(async (entry) => {
+    await outbox.drain((entry) => {
       seenKeys.push(entry.id);
-      return { ok: true, retryable: false };
+      return Promise.resolve({ ok: true as const, retryable: false });
     });
     expect(seenKeys).toEqual([key]);
   });
@@ -48,7 +48,7 @@ describe("Outbox (K2.31)", () => {
 
     // 3. Restore connectivity and drain.
     const sends: OutboxEntry[] = [];
-    const sent = await restarted.drain(async (entry) => {
+    const sent = await restarted.drain((entry) => {
       sends.push(entry);
       return okSender(entry);
     });
@@ -60,7 +60,7 @@ describe("Outbox (K2.31)", () => {
 
     // 4. A second drain sends nothing — exactly once.
     const secondSends: OutboxEntry[] = [];
-    const sentAgain = await restarted.drain(async (entry) => {
+    const sentAgain = await restarted.drain((entry) => {
       secondSends.push(entry);
       return okSender(entry);
     });
@@ -75,11 +75,12 @@ describe("Outbox (K2.31)", () => {
     const key = await outbox.enqueue(REQUEST);
 
     // Drain starts, sender hangs (app killed mid-flight).
-    let release!: () => void;
+    let release!: (value: { ok: boolean; retryable: boolean }) => void;
     const hanging = new Promise<{ ok: boolean; retryable: boolean }>((r) => {
-      release = () => r({ ok: true, retryable: false });
+      release = r;
     });
-    const drainPromise = outbox.drain(() => hanging);
+    const sender = (): Promise<{ ok: boolean; retryable: boolean }> => hanging;
+    const drainPromise = outbox.drain(sender);
 
     // Give the drain a tick to mark the entry as sending and persist.
     await new Promise((r) => setTimeout(r, 20));
@@ -92,7 +93,7 @@ describe("Outbox (K2.31)", () => {
 
     // The retry carries the same key — the server dedupes, effect is exactly-once.
     const retriedKeys: string[] = [];
-    const sent = await restarted.drain(async (entry) => {
+    const sent = await restarted.drain((entry) => {
       retriedKeys.push(entry.id);
       return okSender(entry);
     });
@@ -100,7 +101,7 @@ describe("Outbox (K2.31)", () => {
     expect(retriedKeys).toEqual([key]);
 
     // Let the original (dead) drain finish to avoid an unhandled promise.
-    release();
+    release({ ok: true, retryable: false });
     await drainPromise;
   });
 
@@ -112,9 +113,9 @@ describe("Outbox (K2.31)", () => {
 
     // First drain: network fails.
     let attempts = 0;
-    await outbox.drain(async () => {
+    await outbox.drain(() => {
       attempts += 1;
-      return { ok: false, retryable: true };
+      return Promise.resolve({ ok: false as const, retryable: true });
     });
     expect(attempts).toBe(1);
     expect(outbox.pendingCount).toBe(1);
@@ -137,8 +138,8 @@ describe("Outbox (K2.31)", () => {
     // Read the raw persisted JSON and rehydrate a new instance.
     const raw = await store.getItem("@raices/outbox");
     expect(raw).toContain(key);
-    const parsed = JSON.parse(raw ?? "[]");
-    expect(parsed[0].headers).toEqual({ "X-Custom": "value" });
-    expect(parsed[0].body).toEqual(REQUEST.body);
+    const parsed = JSON.parse(raw ?? "[]") as Array<{ headers: unknown; body: unknown }>;
+    expect(parsed[0]?.headers).toEqual({ "X-Custom": "value" });
+    expect(parsed[0]?.body).toEqual(REQUEST.body);
   });
 });
