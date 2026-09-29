@@ -1,5 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { render, screen, type RenderResult } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+
+import { fixtureProvider } from "../src/data/fixtureProvider";
+import { ScreenData } from "../src/data/ScreenDataContext";
 
 import i18n from "../src/i18n";
 import { Button } from "../src/components/Button";
@@ -11,6 +15,11 @@ import { GoalScreen } from "../src/screens/GoalScreen";
 import { HistoryScreen } from "../src/screens/HistoryScreen";
 import { HomeScreen } from "../src/screens/HomeScreen";
 import type { ScreenContentState } from "../src/components/ScreenState";
+
+/** Screens read data through the ScreenDataProvider interface (K2.24). */
+function renderWithData(element: ReactElement): RenderResult {
+  return render(<ScreenData provider={fixtureProvider}>{element}</ScreenData>);
+}
 
 const SCREENS = {
   home: HomeScreen,
@@ -52,7 +61,7 @@ describe("K2.23 audit: interactive elements are labeled in every screen state", 
   for (const [name, Screen] of Object.entries(SCREENS)) {
     for (const state of STATES) {
       it(`${name} / ${state}: every button and link has a non-empty accessible name`, () => {
-        const { unmount } = render(<Screen screenState={state} />);
+        const { unmount } = renderWithData(<Screen screenState={state} />);
         try {
           for (const role of ["button", "link"] as const) {
             for (const el of screen.queryAllByRole(role)) {
@@ -76,7 +85,9 @@ describe("K2.23 audit: assistive-tech labels are localized", () => {
   it("Button loading spinner announces through the locale, not hardcoded Spanish", async () => {
     await i18n.changeLanguage("es-US");
     try {
-      const { unmount } = render(<Button variant="primary" label="X" onPress={() => {}} loading />);
+      const { unmount } = renderWithData(
+        <Button variant="primary" label="X" onPress={() => {}} loading />,
+      );
       expect(screen.getByLabelText("Cargando…")).toBeTruthy();
       unmount();
     } finally {
@@ -85,7 +96,9 @@ describe("K2.23 audit: assistive-tech labels are localized", () => {
 
     await i18n.changeLanguage("en-US");
     try {
-      const { unmount } = render(<Button variant="primary" label="X" onPress={() => {}} loading />);
+      const { unmount } = renderWithData(
+        <Button variant="primary" label="X" onPress={() => {}} loading />,
+      );
       expect(screen.getByLabelText("Loading…")).toBeTruthy();
       // The old hardcoded Spanish string must be gone in every locale.
       expect(screen.queryByLabelText("Cargando")).toBeNull();
@@ -96,19 +109,19 @@ describe("K2.23 audit: assistive-tech labels are localized", () => {
   });
 
   it("StatusDot and CountBadge labels resolve through locale keys", async () => {
-    const { unmount: u1 } = render(<StatusDot tone="ok" />);
+    const { unmount: u1 } = renderWithData(<StatusDot tone="ok" />);
     expect(screen.getByLabelText("Conectado")).toBeTruthy();
     u1();
-    const { unmount: u2 } = render(<CountBadge count={3} />);
+    const { unmount: u2 } = renderWithData(<CountBadge count={3} />);
     expect(screen.getByLabelText("3 pendientes")).toBeTruthy();
     u2();
 
     await i18n.changeLanguage("en-US");
     try {
-      const { unmount: u3 } = render(<StatusDot tone="emergency" pulse />);
+      const { unmount: u3 } = renderWithData(<StatusDot tone="emergency" pulse />);
       expect(screen.getByLabelText("Urgent")).toBeTruthy();
       u3();
-      const { unmount: u4 } = render(<CountBadge count={12} />);
+      const { unmount: u4 } = renderWithData(<CountBadge count={12} />);
       expect(screen.getByLabelText("12 pending")).toBeTruthy();
       u4();
     } finally {
@@ -119,7 +132,7 @@ describe("K2.23 audit: assistive-tech labels are localized", () => {
 
 describe("K2.23 audit: decorative glyphs are hidden from assistive tech", () => {
   it("TransactionCard category icon is aria-hidden (the label text carries the meaning)", () => {
-    render(
+    renderWithData(
       <TransactionCard
         category="housing"
         categoryLabel="Vivienda"

@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, TextInput as RNTextInput, View } from "re
 import "../../src/i18n";
 import { Card } from "../components/Card";
 import { ScreenState, type ScreenContentState } from "../components/ScreenState";
+import { useScreenData } from "../data/ScreenDataContext";
 import { tokens } from "../theme/tokens";
 
 /**
@@ -25,6 +26,7 @@ export function AssistantScreen({
   readonly screenState?: ScreenContentState;
 }): JSX.Element {
   const { t } = useTranslation();
+  const screenData = useScreenData();
   if (screenState === "loading" || screenState === "offline") {
     return <ScreenState kind={screenState} />;
   }
@@ -50,6 +52,7 @@ export function AssistantScreen({
       />
     );
   }
+  const data = screenData.getAssistantData();
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -60,19 +63,20 @@ export function AssistantScreen({
         <Text style={styles.language}>{t("assistant.languageToggle")}</Text>
         <Text style={styles.scope}>{t("assistant.scope")}</Text>
 
-        <AiMessage text={t("assistant.greeting", { name: "Carlos" })} />
-        <UserMessage text={t("assistant.userQuestion1")} />
-        <AiMessage text={t("assistant.aiAnswer1")} />
+        {data.messages.map((message, index) =>
+          message.from === "ai" ? (
+            <AiMessage key={index} text={message.text} />
+          ) : (
+            <UserMessage key={index} text={message.text} />
+          ),
+        )}
 
         <Card style={styles.refCard}>
-          <Text style={styles.refCategory}>{t("assistant.refCategory")}</Text>
-          <Text style={styles.refAmount}>{t("assistant.refAmount")}</Text>
-          <Text style={styles.refTime}>{t("assistant.refTime")}</Text>
-          <Text style={styles.refLink}>{t("assistant.refLink")}</Text>
+          <Text style={styles.refCategory}>{data.refCard.categoryText}</Text>
+          <Text style={styles.refAmount}>{data.refCard.amountText}</Text>
+          <Text style={styles.refTime}>{data.refCard.timeText}</Text>
+          <Text style={styles.refLink}>{data.refCard.linkText}</Text>
         </Card>
-
-        <UserMessage text={t("assistant.userQuestion2")} />
-        <AiMessage text={t("assistant.aiRefusal")} />
       </ScrollView>
 
       <ScrollView
@@ -80,13 +84,11 @@ export function AssistantScreen({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.suggestionsContent}
       >
-        {[t("assistant.suggestion1"), t("assistant.suggestion2"), t("assistant.suggestion3")].map(
-          (s) => (
-            <View key={s} style={styles.suggestion}>
-              <Text style={styles.suggestionText}>{s}</Text>
-            </View>
-          ),
-        )}
+        {data.suggestions.map((s) => (
+          <View key={s} style={styles.suggestion}>
+            <Text style={styles.suggestionText}>{s}</Text>
+          </View>
+        ))}
       </ScrollView>
 
       <View style={styles.inputRow}>

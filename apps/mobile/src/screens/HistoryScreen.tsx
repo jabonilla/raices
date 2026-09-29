@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import "../../src/i18n";
 import { ScreenState, type ScreenContentState } from "../components/ScreenState";
 import { TransactionCard } from "../components/TransactionCard";
+import { useScreenData } from "../data/ScreenDataContext";
 import { tokens } from "../theme/tokens";
 
 type Filter = "all" | "approved" | "pending" | "flagged";
@@ -24,6 +25,7 @@ export function HistoryScreen({
   readonly screenState?: ScreenContentState;
 }): JSX.Element {
   const { t } = useTranslation();
+  const screenData = useScreenData();
   if (screenState === "loading" || screenState === "offline") {
     return <ScreenState kind={screenState} />;
   }
@@ -51,6 +53,7 @@ export function HistoryScreen({
       />
     );
   }
+  const data = screenData.getHistoryData();
   const [filter, setFilter] = useState<Filter>("all");
   const filters: Filter[] = ["all", "approved", "pending", "flagged"];
   return (
@@ -76,55 +79,35 @@ export function HistoryScreen({
         ))}
       </ScrollView>
 
-      <Text style={styles.group}>{t("history.groups.yesterday")}</Text>
-      <TransactionCard
-        category="emergency"
-        categoryLabel={t("history.emergencyCategory")}
-        status="emergency"
-        amountText={t("history.emergencyAmount")}
-        purpose={t("history.emergencyPurpose")}
-        timestamp={t("history.groups.yesterday")}
-        tier="emergency"
-      />
-      <View style={styles.cardGap} />
-      {/*
-        TODO(copy): the declined row's purpose ("Inversión en negocio") is not
-        in the copy sheet, which specifies only "💼 Negocio · En pausa".
-      */}
-      <View style={styles.declined}>
-        <TransactionCard
-          category="business"
-          categoryLabel={t("history.declinedCategory")}
-          status="declined"
-          amountText={t("history.declinedAmount")}
-          purpose={t("history.declinedPurpose")}
-          timestamp={t("history.groups.yesterday")}
-        />
-      </View>
-
-      <Text style={styles.group}>{t("history.groups.thisWeek")}</Text>
-      {/*
-        TODO(copy): the two rows below are not in the copy sheet; static
-        placeholders for the visual shell.
-      */}
-      <TransactionCard
-        category="food"
-        categoryLabel={t("history.recentFoodCategory")}
-        status="approved"
-        amountText={t("history.recentFoodAmount")}
-        purpose={t("history.recentFoodPurpose")}
-        timestamp={t("history.groups.thisWeek")}
-      />
-
-      <Text style={styles.group}>{t("history.groups.twoWeeksAgo")}</Text>
-      <TransactionCard
-        category="housing"
-        categoryLabel={t("history.recentHousingCategory")}
-        status="approved"
-        amountText={t("history.recentHousingAmount")}
-        purpose={t("history.recentHousingPurpose")}
-        timestamp={t("history.groups.twoWeeksAgo")}
-      />
+      {data.groups.map((group) => (
+        <View key={group.title}>
+          <Text style={styles.group}>{group.title}</Text>
+          {group.items.map((item, index) => {
+            const card = (
+              <TransactionCard
+                category={item.category}
+                categoryLabel={item.categoryLabel}
+                status={item.status}
+                amountText={item.amountText}
+                purpose={item.purpose}
+                timestamp={item.timestamp}
+                {...(item.tier !== undefined ? { tier: item.tier } : {})}
+                {...(item.stageText !== undefined ? { stageText: item.stageText } : {})}
+              />
+            );
+            return (
+              <View key={`${item.category}-${item.amountText}-${String(index)}`}>
+                {index > 0 ? <View style={styles.cardGap} /> : null}
+                {/*
+                  Declined renders at 60% opacity. The status comes from the
+                  provider — the screen only maps status to presentation.
+                */}
+                {item.status === "declined" ? <View style={styles.declined}>{card}</View> : card}
+              </View>
+            );
+          })}
+        </View>
+      ))}
     </ScrollView>
   );
 }
