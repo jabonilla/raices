@@ -155,9 +155,10 @@ async function dropDatabase(pool: pg.Pool, database: string): Promise<boolean> {
  * Reclaim per-run databases abandoned by an earlier run.
  *
  * Only databases with nothing connected are considered, and of those only the
- * ones old enough that no test file could still be using them: a database
- * created moments ago belongs to a sibling running in parallel right now. The
- * timestamp recorded on it at creation is what separates the two.
+ * ones whose recorded creation time is old enough that no test file could
+ * still be using them: a database created moments ago belongs to a sibling
+ * running in parallel right now. Anything the sweep cannot date is left
+ * alone — see the loop below.
  */
 async function sweepStalePerRunDatabases(pool: pg.Pool): Promise<void> {
   const { rows } = await pool.query<{ datname: string; created_at: string | null }>(
@@ -172,15 +173,64 @@ async function sweepStalePerRunDatabases(pool: pg.Pool): Promise<void> {
 
   for (const row of rows) {
     const createdAt = row.created_at === null ? Number.NaN : Date.parse(row.created_at);
-    // An unreadable or missing timestamp means the database predates this
-    // convention, so it is stale by definition.
-    if (Number.isFinite(createdAt) && createdAt > cutoff) continue;
+    // No readable timestamp means leave it alone. A database is stamped just
+    // after it is created, so in the window between the two it has no comment
+    // and no connections yet — exactly what an in-use database looks like to
+    // the query above. Treating undateable as stale would let one test file's
+    // sweep drop the database a sibling had just created for itself, which is
+    // a failure; leaving one behind is only untidy, and the next run with a
+    // stamp on it will take it.
+    if (!Number.isFinite(createdAt) || createdAt > cutoff) continue;
     try {
       await dropDatabase(pool, row.datname);
     } catch {
       // Best effort: failing here would fail a test run over leftovers that
       // are not this run's problem.
     }
+  }
+}
+
+/**
+ * An arbitrary but fixed key, so every test file in a run contends for the
+ * same advisory lock.
+ */
+const MIGRATION_LOCK_KEY = 0x7261_6963;
+
+/**
+ * Serialise migrations across test files that share one Postgres cluster.
+ *
+ * 0001_ledger.sql creates the `app` role, and roles are cluster-wide rather
+ * than per-database. Its "create it if it is not already there" is safe on its
+ * own but not against a concurrent copy of itself: two files can both see no
+ * `app` and both try to create it, and the loser gets a unique violation on
+ * pg_authid. Giving each file its own database made that reachable, because
+ * every file now runs the migrations rather than finding them already applied.
+ *
+ * The lock is taken on the supplied database, which every file's admin
+ * connection shares, so it actually serialises them. Migrations take a moment
+ * each, so the cost is small and paid once per file.
+ *
+ * The container path skips this: a container is its own cluster, with no other
+ * file in it to race.
+ */
+async function withMigrationLock<T>(
+  admin: { pool: pg.Pool; database: string } | undefined,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (admin === undefined) return fn();
+
+  // A dedicated client, because an advisory lock belongs to the session that
+  // took it and a pool would not promise us the same one back.
+  const client = await admin.pool.connect();
+  try {
+    await client.query("select pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+    try {
+      return await fn();
+    } finally {
+      await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]);
+    }
+  } finally {
+    client.release();
   }
 }
 
@@ -263,7 +313,7 @@ export async function startTestPostgres(): Promise<TestPostgres> {
   try {
     // An externally supplied database proved itself above, before its server
     // was touched; the container was created here and needs no such proof.
-    await applyMigrations(pool);
+    await withMigrationLock(admin, () => applyMigrations(pool));
   } catch (error) {
     await pool.end();
     await dropPerRunDatabase(admin);
