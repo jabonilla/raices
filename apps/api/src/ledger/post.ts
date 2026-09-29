@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 
-import { add, equals, isCurrency, money, type Currency, type Money } from "@raices/money";
+import {
+  add,
+  equals,
+  isCurrency,
+  money,
+  SUPPORTED_CURRENCIES,
+  type Currency,
+  type Money,
+} from "@raices/money";
 import type { Kysely, Transaction } from "kysely";
 import { z } from "zod";
 
@@ -76,21 +84,35 @@ export class IdempotencyConflictError extends Error {
   }
 }
 
-const CurrencySchema = z.custom<Currency>(isCurrency, {
-  message: "unsupported currency",
-});
+/**
+ * Exported for OpenAPI generation (apps/api/src/openapi.ts): the document's
+ * schema components are generated from these exact schemas, so the published
+ * contract can never drift from what `post` validates.
+ *
+ * The `.meta()` declares the JSON representation of this custom guard for
+ * generators that read Zod 4 native metadata. It changes nothing about
+ * validation: the guard still accepts exactly the supported ISO 4217 codes.
+ */
+export const CurrencySchema = z
+  .custom<Currency>(isCurrency, {
+    message: "unsupported currency",
+  })
+  .meta({ type: "string", enum: [...SUPPORTED_CURRENCIES] });
 
 /**
  * Money arrives as the frozen value from packages/money. It is re-validated
  * here rather than trusted: `post` is a boundary, and CLAUDE.md puts Zod at
  * every boundary.
  */
-const MoneySchema = z.object({
-  amount: z.bigint().positive(),
+export const MoneySchema = z.object({
+  // Wire representation declared for OpenAPI generation (see CurrencySchema
+  // above): positive bigint amounts are decimal strings without leading
+  // zeros. Validation behavior is unchanged.
+  amount: z.bigint().positive().meta({ pattern: "^[1-9]\\d*$" }),
   currency: CurrencySchema,
 });
 
-const EntrySchema = z.object({
+export const EntrySchema = z.object({
   accountId: z.uuid(),
   direction: z.enum(["debit", "credit"]),
   amount: MoneySchema,
@@ -101,7 +123,7 @@ const EntrySchema = z.object({
  * Two entries is the floor for double entry, and the database enforces it too.
  * Rejecting here gives the caller a useful message instead of a SQLSTATE.
  */
-const PostRequestSchema = z.object({
+export const PostRequestSchema = z.object({
   idempotencyKey: z.string().min(1),
   description: z.string().min(1),
   occurredAt: z.date(),
