@@ -13,6 +13,8 @@ import { AssistantScreen } from "../src/screens/AssistantScreen";
 import { GoalScreen } from "../src/screens/GoalScreen";
 import { HistoryScreen } from "../src/screens/HistoryScreen";
 import { HomeScreen } from "../src/screens/HomeScreen";
+import { InviteScreen } from "../src/screens/InviteScreen";
+import { RelationshipsScreen } from "../src/screens/RelationshipsScreen";
 
 afterEach(cleanup);
 
@@ -22,6 +24,8 @@ const SCREENS = {
   goal: GoalScreen,
   history: HistoryScreen,
   assistant: AssistantScreen,
+  invite: InviteScreen,
+  relationships: RelationshipsScreen,
 } as const;
 
 const SCREEN_FILES = [
@@ -30,6 +34,9 @@ const SCREEN_FILES = [
   "GoalScreen.tsx",
   "HistoryScreen.tsx",
   "HomeScreen.tsx",
+  "InviteScreen.tsx",
+  "RelationshipsScreen.tsx",
+  "RelationshipDetailScreen.tsx",
 ] as const;
 
 function screenSource(file: string): string {
@@ -93,12 +100,14 @@ describe("data-layer architecture (K2.24)", () => {
       expect(typeof provider.getGoalData).toBe("function");
       expect(typeof provider.getHistoryData).toBe("function");
       expect(typeof provider.getAssistantData).toBe("function");
+      expect(typeof provider.getRelationshipsData).toBe("function");
       // Every method returns a defined object — no undefined holes.
       expect(provider.getHomeData()).toBeTruthy();
       expect(provider.getApprovalData()).toBeTruthy();
       expect(provider.getGoalData()).toBeTruthy();
       expect(provider.getHistoryData()).toBeTruthy();
       expect(provider.getAssistantData()).toBeTruthy();
+      expect(provider.getRelationshipsData()).toBeTruthy();
     }
   });
 
@@ -108,6 +117,7 @@ describe("data-layer architecture (K2.24)", () => {
     expect(() => realProvider.getGoalData()).toThrow("not implemented");
     expect(() => realProvider.getHistoryData()).toThrow("not implemented");
     expect(() => realProvider.getAssistantData()).toThrow("not implemented");
+    expect(() => realProvider.getRelationshipsData()).toThrow("not implemented");
   });
 
   it("amounts pass through as opaque strings — the provider never formats money", () => {

@@ -1,5 +1,13 @@
 import type { ScreenDataProvider } from "./provider";
-import type { ApprovalData, AssistantData, GoalData, HistoryData, HomeData } from "./types";
+import type {
+  ApprovalData,
+  AssistantData,
+  GoalData,
+  HistoryData,
+  HomeData,
+  RelationshipItem,
+  RelationshipsData,
+} from "./types";
 
 /**
  * Fixture provider (K2.24): realistic Spanish-language sample data for the
@@ -14,6 +22,55 @@ import type { ApprovalData, AssistantData, GoalData, HistoryData, HomeData } fro
  * same strings. `uglyFixtureProvider` (below) carries the stress cases:
  * screens that only look right with tidy data are not done.
  */
+
+/** ISO-8601 instant `n` days before now. Fixture dates stay relative so the */
+/** invitation-expiry states (K2.27) are deterministic whenever rendered. */
+function daysAgoISO(n: number): string {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** P2.2 invitation expiry: invitedAt + 14 days (db/migrations/0004). */
+function expiresAtISO(invitedAtISO: string): string {
+  return new Date(new Date(invitedAtISO).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function relationship(
+  id: string,
+  displayName: string,
+  phoneE164: string,
+  status: RelationshipItem["status"],
+  invitedDaysAgo: number,
+): RelationshipItem {
+  const invitedAtISO = daysAgoISO(invitedDaysAgo);
+  return {
+    id,
+    displayName,
+    phoneE164,
+    status,
+    invitedAtISO,
+    expiresAtISO: expiresAtISO(invitedAtISO),
+  };
+}
+
+/**
+ * Relationship fixtures (K2.27): one of every status, an invited
+ * relationship with time remaining, an expired invitation with a resend
+ * action, and one person ("Mamá", +502 5550 1111) in TWO relationships —
+ * the UI must never assume one sender per recipient.
+ */
+function fixtureRelationships(): RelationshipsData {
+  return {
+    relationships: [
+      relationship("rel-1", "Mamá", "+50255501111", "active", 60),
+      relationship("rel-2", "Tío Jorge", "+50255502222", "invited", 2),
+      relationship("rel-3", "Prima Ana", "+50255503333", "invited", 20),
+      relationship("rel-4", "Hermano Luis", "+50255504444", "paused", 90),
+      relationship("rel-5", "Vecino Pedro", "+15025550555", "terminated", 120),
+      relationship("rel-6", "Mamá", "+50255501111", "paused", 200),
+    ],
+  };
+}
+
 export const fixtureProvider: ScreenDataProvider = {
   getHomeData(): HomeData {
     return {
@@ -207,6 +264,9 @@ export const fixtureProvider: ScreenDataProvider = {
       ],
     };
   },
+  getRelationshipsData(): RelationshipsData {
+    return fixtureRelationships();
+  },
 };
 
 /**
@@ -349,6 +409,24 @@ export const uglyFixtureProvider: ScreenDataProvider = {
         "¿Cuánto me queda para la segunda etapa de la casa este mes?",
         "¿Cómo cambio mi plan?",
         "¿Qué pasa si digo que no?",
+      ],
+    };
+  },
+  getRelationshipsData(): RelationshipsData {
+    return {
+      relationships: [
+        // Exactly 18 characters: the K2.24 ugly-case name, now as a
+        // per-relationship display name (PII — never logged).
+        relationship("rel-ugly-1", "Lucía Fernanda Gil", "+50255509999", "active", 30),
+        // Very long display name; invited 13d23h ago so the countdown shows
+        // hours, exercising the boundary rendering.
+        relationship(
+          "rel-ugly-2",
+          "María Guadalupe Hernández de la Cruz",
+          "+50255508888",
+          "invited",
+          13.96,
+        ),
       ],
     };
   },

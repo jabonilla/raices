@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -8,6 +9,7 @@ import { tokens } from "../src/theme/tokens";
 
 export default function Index(): JSX.Element {
   const { t } = useTranslation();
+  const router = useRouter();
   const getStarted = t("app.getStarted");
   return (
     <View style={styles.container}>
@@ -17,7 +19,7 @@ export default function Index(): JSX.Element {
         accessibilityRole="button"
         style={styles.button}
         onPress={() => {
-          // Placeholder: real navigation arrives with later tickets.
+          router.push("/relationships");
         }}
       >
         <Text style={styles.buttonText}>{getStarted}</Text>
