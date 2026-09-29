@@ -1,5 +1,7 @@
 import type { ColumnType } from "kysely";
 
+import type { AuditDatabase } from "../audit/schema.js";
+
 /**
  * The typed database schema Kysely builds against, mirroring
  * `db/migrations/0001_ledger.sql`.
@@ -53,7 +55,7 @@ export interface LedgerEntryTable {
   created_at: DefaultedImmutable<Date>;
 }
 
-export interface Database {
+export interface Database extends AuditDatabase {
   ledger_account: LedgerAccountTable;
   ledger_transaction: LedgerTransactionTable;
   ledger_entry: LedgerEntryTable;
