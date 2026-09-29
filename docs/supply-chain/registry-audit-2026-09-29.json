@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 2,
+      "high": 0,
+      "critical": 0
+    },
+    "dependencies": 1063,
+    "devDependencies": 0,
+    "optionalDependencies": 0,
+    "totalDependencies": 1063
+  },
+  "advisories": [
+    {
+      "module_name": "uuid",
+      "severity": "moderate",
+      "github_advisory_id": "GHSA-w5hq-g745-h8pq",
+      "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+      "vulnerable_versions": "<11.1.1",
+      "patched_versions": ">=11.1.1",
+      "findings": [
+        {
+          "version": "7.0.3",
+          "paths": [
+            "apps__mobile>expo>@expo/config-plugins>xcode>uuid"
+          ]
+        }
+      ],
+      "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq"
+    },
+    {
+      "module_name": "decode-uri-component",
+      "severity": "moderate",
+      "github_advisory_id": "GHSA-vcc3-ghjq-m6fr",
+      "title": "decode-uri-component: Denial of service via exponential decoding of malformed percent-encoded input",
+      "vulnerable_versions": "<=0.4.2",
+      "patched_versions": ">=0.5.0",
+      "findings": [
+        {
+          "version": "0.2.2",
+          "paths": [
+            "apps__mobile>expo-router>query-string>decode-uri-component"
+          ]
+        }
+      ],
+      "url": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr"
+    }
+  ]
+}
