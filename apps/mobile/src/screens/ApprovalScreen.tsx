@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import "../../src/i18n";
 import { Button } from "../components/Button";
 import { ScreenState, type ScreenContentState } from "../components/ScreenState";
+import { useScreenData } from "../data/ScreenDataContext";
 import { tokens } from "../theme/tokens";
 
 /**
@@ -30,6 +31,7 @@ export function ApprovalScreen({
   readonly screenState?: ScreenContentState;
 }): JSX.Element {
   const { t } = useTranslation();
+  const screenData = useScreenData();
   if (screenState === "loading" || screenState === "offline") {
     return <ScreenState kind={screenState} />;
   }
@@ -55,29 +57,30 @@ export function ApprovalScreen({
       />
     );
   }
-  const amount = t("approval.amount");
+  const data = screenData.getApprovalData();
+  const amount = data.amountText;
   return (
     <View style={styles.sheet}>
       <View style={styles.handle} />
-      <Text style={styles.recipient}>{t("approval.recipientName")}</Text>
-      <Text style={styles.relationship}>{t("approval.relationship")}</Text>
+      <Text style={styles.recipient}>{data.recipientName}</Text>
+      <Text style={styles.relationship}>{data.relationship}</Text>
 
       <View style={styles.divider} />
 
       <View style={styles.categoryRow}>
         <Text style={styles.categoryIcon}>{CATEGORY_ICON}</Text>
-        <Text style={styles.categoryLabel}>{t("approval.category")}</Text>
+        <Text style={styles.categoryLabel}>{data.categoryLabel}</Text>
       </View>
-      <Text style={styles.purpose}>{t("approval.purpose")}</Text>
+      <Text style={styles.purpose}>{data.purpose}</Text>
       <Text style={styles.amount}>{amount}</Text>
 
       <View style={styles.divider} />
 
-      <Text style={styles.planMatch}>{t("approval.planMatch")}</Text>
+      <Text style={styles.planMatch}>{data.planMatchText}</Text>
       <Text style={styles.planDetail}>
         {t("approval.planMatchDetail", {
-          available: "$105",
-          category: t("approval.category"),
+          available: data.planAvailableText,
+          category: data.categoryLabel,
         })}
       </Text>
 
