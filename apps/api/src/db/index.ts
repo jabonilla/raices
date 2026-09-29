@@ -5,10 +5,11 @@ import type { Database } from "./schema.js";
 
 export { type Database } from "./schema.js";
 export {
-  MAX_ATTEMPTS,
+  DEFAULT_RETRY_BUDGET_MS,
   SerializationRetryExhausted,
   isRetryableSerializationError,
   withSerializableTx,
+  type TransactionAttempt,
   type WithSerializableTxOptions,
 } from "./serializable.js";
 

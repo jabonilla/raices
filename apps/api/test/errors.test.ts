@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app.js";
+import { SerializationRetryExhausted } from "../src/db/serializable.js";
 import {
   ApiError,
   BadRequestError,
@@ -123,6 +124,33 @@ describe("toApiError mapping", () => {
     expect(mapped.body).toEqual({
       error: { code: "conflict", message: "duplicate transfer", requestId },
     });
+  });
+
+  // Issue #44: a transaction that ran out of retry budget wrote nothing and
+  // the caller may simply send it again. A 500 would say the opposite.
+  it("maps SerializationRetryExhausted to a retryable 503, not a 500", () => {
+    const exhausted = new SerializationRetryExhausted(9, 2_013, 2_000, {
+      cause: Object.assign(new Error("serialization_failure"), { code: "40001" }),
+    });
+    const mapped = toApiError(exhausted, requestId);
+
+    expect(mapped.statusCode).toBe(503);
+    expect(mapped.body).toEqual({
+      error: { code: "unavailable", message: "The service is busy. Please retry.", requestId },
+    });
+  });
+
+  it("does not leak attempt counts or driver text when reporting exhaustion", () => {
+    const exhausted = new SerializationRetryExhausted(9, 2_013, 2_000, {
+      cause: Object.assign(new Error(`could not serialize: ${FAKE_CONNECTION_STRING}`), {
+        code: "40001",
+      }),
+    });
+    const serialized = JSON.stringify(toApiError(exhausted, requestId));
+
+    expect(serialized).not.toContain(SECRET);
+    expect(serialized).not.toContain("40001");
+    expect(serialized).not.toContain("serialize");
   });
 
   it("maps a Zod-shaped validation error to 400 invalid_request", () => {

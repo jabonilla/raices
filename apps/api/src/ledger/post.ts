@@ -5,7 +5,7 @@ import type { Kysely, Transaction } from "kysely";
 import { z } from "zod";
 
 import type { Database } from "../db/schema.js";
-import { withSerializableTx } from "../db/serializable.js";
+import { withSerializableTx, type WithSerializableTxOptions } from "../db/serializable.js";
 
 /** Postgres raises this when the unique idempotency key collides. */
 const UNIQUE_VIOLATION = "23505";
@@ -268,8 +268,16 @@ function replayOf(
  * failure is retried transparently. Idempotent by `idempotencyKey`: the same
  * key with the same contents replays and writes nothing, and the same key with
  * different contents is an error rather than a silent second posting.
+ *
+ * `options` is passed through to `withSerializableTx`, so a caller that knows
+ * it is writing under unusual contention can widen the retry budget, and a
+ * test can observe the attempts it took.
  */
-export async function post(db: Kysely<Database>, request: PostRequest): Promise<PostResult> {
+export async function post(
+  db: Kysely<Database>,
+  request: PostRequest,
+  options: WithSerializableTxOptions = {},
+): Promise<PostResult> {
   const parsed = PostRequestSchema.parse(request);
   assertBalanced(parsed.entries);
 
@@ -277,58 +285,62 @@ export async function post(db: Kysely<Database>, request: PostRequest): Promise<
 
   for (let attempt = 1; attempt <= MAX_COLLISION_ATTEMPTS; attempt += 1) {
     try {
-      return await withSerializableTx(db, async (trx) => {
-        // Insert first, rather than checking for the key and then inserting.
-        // The check would be a read of the idempotency index, and under
-        // SERIALIZABLE that read takes a predicate lock: on a small index
-        // every key sits on the same page, so 50 concurrent postings with
-        // distinct keys would all rw-conflict and cancel each other as
-        // pivots. ON CONFLICT resolves the collision in the index instead,
-        // where it costs nothing.
-        const created = await trx
-          .insertInto("ledger_transaction")
-          .values({
-            idempotency_key: parsed.idempotencyKey,
-            request_hash: requestHash,
-            description: parsed.description,
-            occurred_at: parsed.occurredAt,
-          })
-          .onConflict((oc) => oc.column("idempotency_key").doNothing())
-          .returning(["id", "seq"])
-          .executeTakeFirst();
+      return await withSerializableTx(
+        db,
+        async (trx) => {
+          // Insert first, rather than checking for the key and then inserting.
+          // The check would be a read of the idempotency index, and under
+          // SERIALIZABLE that read takes a predicate lock: on a small index
+          // every key sits on the same page, so 50 concurrent postings with
+          // distinct keys would all rw-conflict and cancel each other as
+          // pivots. ON CONFLICT resolves the collision in the index instead,
+          // where it costs nothing.
+          const created = await trx
+            .insertInto("ledger_transaction")
+            .values({
+              idempotency_key: parsed.idempotencyKey,
+              request_hash: requestHash,
+              description: parsed.description,
+              occurred_at: parsed.occurredAt,
+            })
+            .onConflict((oc) => oc.column("idempotency_key").doNothing())
+            .returning(["id", "seq"])
+            .executeTakeFirst();
 
-        if (created === undefined) {
-          // The key already exists. Either it was committed before our
-          // snapshot, in which case we can read it and replay, or a
-          // concurrent caller committed it after our snapshot, in which case
-          // it is invisible here and only a fresh transaction can see it.
-          const existing = await findByKey(trx, parsed.idempotencyKey);
-          if (existing !== undefined) {
-            return replayOf(existing, parsed.idempotencyKey, requestHash);
+          if (created === undefined) {
+            // The key already exists. Either it was committed before our
+            // snapshot, in which case we can read it and replay, or a
+            // concurrent caller committed it after our snapshot, in which case
+            // it is invisible here and only a fresh transaction can see it.
+            const existing = await findByKey(trx, parsed.idempotencyKey);
+            if (existing !== undefined) {
+              return replayOf(existing, parsed.idempotencyKey, requestHash);
+            }
+            throw new ConcurrentKeyInsert(parsed.idempotencyKey);
           }
-          throw new ConcurrentKeyInsert(parsed.idempotencyKey);
-        }
 
-        await trx
-          .insertInto("ledger_entry")
-          .values(
-            parsed.entries.map((entry) => ({
-              transaction_id: created.id,
-              account_id: entry.accountId,
-              direction: entry.direction,
-              amount_minor: entry.amount.amount,
-              currency: entry.amount.currency,
-              entry_type: entry.entryType,
-            })),
-          )
-          .execute();
+          await trx
+            .insertInto("ledger_entry")
+            .values(
+              parsed.entries.map((entry) => ({
+                transaction_id: created.id,
+                account_id: entry.accountId,
+                direction: entry.direction,
+                amount_minor: entry.amount.amount,
+                currency: entry.amount.currency,
+                entry_type: entry.entryType,
+              })),
+            )
+            .execute();
 
-        return {
-          transactionId: created.id,
-          seq: BigInt(created.seq),
-          replayed: false,
-        };
-      });
+          return {
+            transactionId: created.id,
+            seq: BigInt(created.seq),
+            replayed: false,
+          };
+        },
+        options,
+      );
     } catch (error) {
       // We lost a race to another caller using the same new key. The winner
       // has committed by the time this surfaces, so the next attempt opens a
