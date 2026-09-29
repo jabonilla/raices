@@ -35,3 +35,10 @@ jobs:
       # Testcontainers path, not a pre-provisioned database.
       - name: make verify
         run: make verify
+
+      # Bundle-size budget (K2.22): exports the Android production JS bundle
+      # and fails if it exceeds the budget in scripts/check-bundle-budget.ts.
+      # The target user is often on an older Android with limited storage and
+      # metered data, so size is a product constraint, not vanity.
+      - name: Bundle-size budget
+        run: pnpm check:bundle-budget
