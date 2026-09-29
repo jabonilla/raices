@@ -42,3 +42,59 @@ jobs:
       # metered data, so size is a product constraint, not vanity.
       - name: Bundle-size budget
         run: pnpm check:bundle-budget
+
+  docker:
+    name: API image build + Postgres smoke test
+    # K2.29: build the production image, boot it against a throwaway
+    # Postgres 16, and assert /health (liveness) and /ready (readiness).
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the API image
+        run: docker build -f apps/api/Dockerfile -t raices-api:ci .
+
+      - name: Start throwaway Postgres
+        run: |
+          docker run -d --name pg-ci \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=raices \
+            postgres:16-alpine
+          # Wait for Postgres to accept connections.
+          for i in $(seq 1 30); do
+            docker exec pg-ci pg_isready -U postgres && break
+            sleep 1
+          done
+
+      - name: Start the API container
+        run: |
+          docker run -d --name api-ci \
+            --link pg-ci:postgres \
+            -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raices \
+            -e PORT=3000 \
+            -p 3000:3000 \
+            raices-api:ci
+
+      - name: Assert /health and /ready
+        run: |
+          # /health needs no DB: must be 200 as soon as the process is up.
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/health && break
+            sleep 1
+          done
+          # /ready needs Postgres: 200 once the DB is reachable.
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ready && break
+            sleep 1
+          done
+          echo "health: $(curl -s http://localhost:3000/health)"
+          echo "ready:  $(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/ready)"
+
+      - name: Show API logs on failure
+        if: failure()
+        run: docker logs api-ci
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f api-ci pg-ci || true
