@@ -20,6 +20,8 @@ const SENSITIVE_VALUES = {
   phone: "+15551234567",
   phoneNumber: "+50255512345",
   name: "María García",
+  displayName: "Tía Rosa",
+  display_name: "Tío Beto",
   firstName: "María",
   lastName: "García",
   email: "maria.garcia@example.com",
@@ -75,6 +77,25 @@ it("redacts sensitive fields at the top level", () => {
   expectNoSensitiveValues(output);
   expect(output).toContain("top-level");
   expect(output).toContain("req-123");
+  expect(output).toContain(CENSOR);
+});
+
+// A relationship's display name is what one sender calls one recipient. In a
+// log line that is the same leak as the phone number it was invited with.
+it("redacts a relationship display name, in both spellings", () => {
+  const output = captureLogs((logger) => {
+    logger.info(
+      {
+        displayName: SENSITIVE_VALUES.displayName,
+        relationship: { display_name: SENSITIVE_VALUES.display_name },
+        requestId: "req-display",
+      },
+      "display-name",
+    );
+  });
+
+  expectNoSensitiveValues(output);
+  expect(output).toContain("req-display");
   expect(output).toContain(CENSOR);
 });
 
