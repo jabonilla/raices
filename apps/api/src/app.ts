@@ -1,6 +1,8 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 
+import { FakeChannelAdapter } from "@raices/channels";
+
 import { checkDatabaseReady } from "./health.js";
 import { createPool } from "./db/index.js";
 import { NotFoundError, toApiError } from "./errors.js";
@@ -8,6 +10,9 @@ import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
 import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
 import { buildOpenApiDocument } from "./openapi.js";
 import { registerTelemetry } from "./telemetry.js";
+import { InMemoryInboundDeduplicator } from "./webhooks/dedupe.js";
+import { registerWebhookRoutes, type WebhookRouteDeps } from "./webhooks/routes.js";
+import { FakeSignatureVerifier } from "./webhooks/signature.js";
 
 export interface HealthResponse {
   readonly ok: true;
@@ -27,6 +32,12 @@ export interface BuildAppOptions {
   readonly rateLimitMax?: number;
   /** Rate-limit window length in ms. Defaults to one minute. */
   readonly rateLimitWindowMs?: number;
+  /**
+   * Webhook seam dependencies (K2.28). Defaults are the skeleton fakes: a
+   * FakeChannelAdapter, a FakeSignatureVerifier accepting the documented
+   * test signature, and an in-memory deduplicator. Tests inject their own.
+   */
+  readonly webhooks?: Partial<WebhookRouteDeps> | undefined;
 }
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -134,6 +145,17 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   // schemas. Served as JSON; see src/openapi.ts.
   app.get("/openapi.json", () => {
     return buildOpenApiDocument();
+  });
+
+  // POST /webhooks/channel: the receiving half of the channel seam (K2.28).
+  // Skeleton wiring — fake adapter, fake signature verifier, in-memory
+  // dedupe. Phase 3 replaces these with the real provider and the durable
+  // store; the route and its contract stay the same.
+  registerWebhookRoutes(app, {
+    adapter: options.webhooks?.adapter ?? new FakeChannelAdapter({ channel: "fake" }),
+    verifier: options.webhooks?.verifier ?? new FakeSignatureVerifier(),
+    deduplicator: options.webhooks?.deduplicator ?? new InMemoryInboundDeduplicator(),
+    handleEvent: options.webhooks?.handleEvent,
   });
 
   return app;
