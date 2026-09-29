@@ -186,5 +186,27 @@
     "back": "Back",
     "invitedLabel": "Invitation",
     "statusRowLabel": "Status"
+  },
+  "notifications": {
+    "transfer_received": {
+      "title": "You have a new update",
+      "body": "Open Raíces to see what changed."
+    },
+    "transfer_approved": {
+      "title": "Your request was approved",
+      "body": "Open Raíces for the details."
+    },
+    "transfer_needs_approval": {
+      "title": "Something needs your approval",
+      "body": "Open Raíces to review it."
+    },
+    "invite_received": {
+      "title": "You've been invited",
+      "body": "Open Raíces to see the invitation."
+    },
+    "relationship_updated": {
+      "title": "Something changed",
+      "body": "Open Raíces to see the latest."
+    }
   }
 }
