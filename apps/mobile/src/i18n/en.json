@@ -134,6 +134,11 @@
       "errorTitle": "We couldn't load your home screen."
     }
   },
+  "indicators": {
+    "statusDotUrgent": "Urgent",
+    "statusDotConnected": "Connected",
+    "countBadge": "{{count}} pending"
+  },
   "states": {
     "askAi": "Ask the assistant",
     "errorBody": "Try again in a few minutes. If it still doesn't work, ask the assistant.",

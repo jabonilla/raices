@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +10,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import "../../src/i18n";
 import { tokens } from "../theme/tokens";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive" | "emergency";
@@ -45,6 +47,7 @@ export function Button({
   accessibilityLabel,
   style,
 }: ButtonProps): JSX.Element {
+  const { t } = useTranslation();
   const interactive = !disabled && !loading;
   return (
     <Pressable
@@ -62,7 +65,10 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variantStyles[variant].spinner} accessibilityLabel="Cargando" />
+        <ActivityIndicator
+          color={variantStyles[variant].spinner}
+          accessibilityLabel={t("states.loading")}
+        />
       ) : (
         <Text style={[styles.label, variantStyles[variant].label]}>{label}</Text>
       )}

@@ -1,6 +1,8 @@
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
+import "../i18n";
 import { tokens } from "../theme/tokens";
 
 export interface StatusDotProps {
@@ -18,11 +20,14 @@ export interface StatusDotProps {
  * brick pulse for emergency awaiting approval — and nothing else.
  */
 export function StatusDot({ tone, pulse = false }: StatusDotProps): JSX.Element {
+  const { t } = useTranslation();
   const allowPulse = tone === "emergency" && pulse;
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={tone === "emergency" ? "Urgente" : "Conectado"}
+      accessibilityLabel={
+        tone === "emergency" ? t("indicators.statusDotUrgent") : t("indicators.statusDotConnected")
+      }
       style={[
         styles.dot,
         tone === "emergency" ? styles.emergency : styles.ok,
@@ -42,10 +47,11 @@ export interface CountBadgeProps {
  * background, white number.
  */
 export function CountBadge({ count, accessibilityLabel }: CountBadgeProps): JSX.Element {
+  const { t } = useTranslation();
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={accessibilityLabel ?? `${String(count)} pendientes`}
+      accessibilityLabel={accessibilityLabel ?? t("indicators.countBadge", { count })}
       style={styles.count}
     >
       <Text style={styles.countText}>{String(count)}</Text>
@@ -71,8 +77,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   count: {
-    width: 18,
-    height: 18,
+    // Minimum 18px circle at the default text size; min- (not fixed) width
+    // and height so the badge grows with larger OS font sizes and
+    // multi-digit counts instead of clipping them.
+    minWidth: 18,
+    minHeight: 18,
+    paddingHorizontal: tokens.spacing.s1,
     borderRadius: tokens.radius.full,
     backgroundColor: tokens.color.tierra,
     alignItems: "center",

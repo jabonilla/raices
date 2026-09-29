@@ -134,6 +134,11 @@
       "errorTitle": "No pudimos cargar tu inicio."
     }
   },
+  "indicators": {
+    "statusDotUrgent": "Urgente",
+    "statusDotConnected": "Conectado",
+    "countBadge": "{{count}} pendientes"
+  },
   "states": {
     "askAi": "Preguntar al asistente",
     "errorBody": "Intenta de nuevo en unos minutos. Si sigue sin funcionar, pregúntale al asistente.",

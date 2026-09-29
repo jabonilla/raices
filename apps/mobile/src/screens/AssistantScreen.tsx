@@ -78,7 +78,6 @@ export function AssistantScreen({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.suggestions}
         contentContainerStyle={styles.suggestionsContent}
       >
         {[t("assistant.suggestion1"), t("assistant.suggestion2"), t("assistant.suggestion3")].map(
@@ -231,9 +230,9 @@ const styles = StyleSheet.create({
     color: tokens.color.tierra,
     marginTop: tokens.spacing.s2,
   },
-  suggestions: {
-    maxHeight: 48,
-  },
+  // NOTE (K2.23 audit): no maxHeight here on purpose. The row must grow with
+  // the OS font-size setting (K2.7 bans allowFontScaling); a fixed cap would
+  // clip suggestion text at the largest accessibility sizes.
   suggestionsContent: {
     paddingHorizontal: tokens.spacing.s4,
     alignItems: "center",
