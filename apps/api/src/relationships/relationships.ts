@@ -13,6 +13,9 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** SQLSTATE raised by the expiry guard in 0004. */
 const INVITATION_EXPIRED = "RL001";
 
+/** Postgres unique_violation, raised by relationship_one_live_per_pair. */
+const UNIQUE_VIOLATION = "23505";
+
 export class InvitationExpiredError extends Error {
   readonly relationshipId: string;
 
@@ -56,9 +59,32 @@ function isExpiryViolation(error: unknown): boolean {
   return (error as { code?: unknown } | null)?.code === INVITATION_EXPIRED;
 }
 
+/**
+ * Thrown when a pair already has a relationship that has not been terminated.
+ *
+ * Distinct from a generic conflict because the remedy is specific: the two
+ * people are already connected, so the caller should use the relationship
+ * they have rather than open a second one.
+ */
+export class RelationshipAlreadyExistsError extends Error {
+  constructor(senderId: string, recipientId: string, options?: { cause?: unknown }) {
+    super(
+      `Users ${senderId} and ${recipientId} already have a relationship that has not been ` +
+        `terminated. Terminate it before inviting again.`,
+      options,
+    );
+    this.name = "RelationshipAlreadyExistsError";
+  }
+}
+
 export interface InviteInput {
   readonly senderId: string;
   readonly recipientId: string;
+  /**
+   * What the sender calls this recipient. PII, and optional: null means null,
+   * never a name inferred from the phone number or a placeholder.
+   */
+  readonly displayName?: string;
 }
 
 export interface InvitedRelationship {
@@ -77,18 +103,31 @@ export async function invite(
   db: Kysely<Database>,
   input: InviteInput,
 ): Promise<InvitedRelationship> {
-  const row = await db
-    .insertInto("relationship")
-    .values({
-      user_a_id: input.senderId,
-      user_b_id: input.recipientId,
-      role_of_a: "sender",
-      role_of_b: "recipient",
-    })
-    .returning("id")
-    .executeTakeFirstOrThrow();
+  try {
+    const row = await db
+      .insertInto("relationship")
+      .values({
+        user_a_id: input.senderId,
+        user_b_id: input.recipientId,
+        role_of_a: "sender",
+        role_of_b: "recipient",
+        display_name: input.displayName ?? null,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
 
-  return { id: row.id };
+    return { id: row.id };
+  } catch (error) {
+    // The partial unique index in 0004 allows one live relationship per pair.
+    // Re-inviting after termination is fine and lands here only while the
+    // previous one is still live.
+    if ((error as { code?: unknown } | null)?.code === UNIQUE_VIOLATION) {
+      throw new RelationshipAlreadyExistsError(input.senderId, input.recipientId, {
+        cause: error,
+      });
+    }
+    throw error;
+  }
 }
 
 interface StatusChangeInput {

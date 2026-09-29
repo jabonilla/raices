@@ -4,7 +4,9 @@
 -- is a syntax error, and `select * from user` does not error at all — it
 -- silently returns the current database username instead of the table's rows.
 -- A forgotten quote would then produce a wrong answer rather than a failure,
--- which is not a trade worth making anywhere, least of all here.
+-- which is not a trade worth making anywhere, least of all in the table that
+-- identifies who money moves between. Reviewed and kept deliberately: this is
+-- not an oversight to "fix" back to `user` later.
 --
 -- Status changes on `relationship` are governed by 0003's mechanism: the
 -- constraint trigger at the bottom refuses any status change that does not
@@ -82,6 +84,17 @@ create table relationship (
     constraint relationship_status_known
       check (status in ('invited', 'active', 'paused', 'terminated')),
 
+  -- What THIS sender calls THIS recipient, set by the inviter. It lives on
+  -- the relationship rather than the user because two senders may know the
+  -- same person by different names, and neither gets to rename them
+  -- globally. Nullable, and null means null: nothing is inferred from the
+  -- phone number and there is no "Recipient 2" placeholder.
+  --
+  -- PII. It is on the K2.5 redaction deny-list in apps/api/src/logging.ts,
+  -- under both spellings, because a display name in a log is the same leak
+  -- as a phone number.
+  display_name text,
+
   invited_at  timestamptz not null default now(),
   activated_at timestamptz,
 
@@ -100,6 +113,20 @@ create table relationship (
   constraint relationship_activated_at_absent_while_invited
     check (status <> 'invited' or activated_at is null)
 );
+
+-- One live relationship per pair of people.
+--
+-- A duplicate live relationship would give the same two people two plans, two
+-- sets of caps and two request streams that cannot see each other, which
+-- makes every spend cap in P2.3 bypassable by inviting twice.
+--
+-- Keyed on least/greatest rather than the raw columns so a duplicate cannot
+-- sneak in with the two users swapped. Terminated rows are excluded: a
+-- relationship that ended and restarted is genuinely a new one, so
+-- re-inviting is allowed and creates a new row, leaving both in the history.
+create unique index relationship_one_live_per_pair
+  on relationship (least(user_a_id, user_b_id), greatest(user_a_id, user_b_id))
+  where status <> 'terminated';
 
 -- Both directions are first-class, so both get an index. Neither is the
 -- "real" one: a sender's recipients and a recipient's senders are read

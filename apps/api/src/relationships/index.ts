@@ -16,6 +16,7 @@ export {
 export {
   INVITATION_WINDOW_DAYS,
   InvitationExpiredError,
+  RelationshipAlreadyExistsError,
   activate,
   invitationExpiresAt,
   invite,

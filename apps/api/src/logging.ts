@@ -36,6 +36,12 @@ const REDACT_PATHS = [
   "*.fullName",
   "recipientName",
   "*.recipientName",
+  // A relationship's display name: what one sender calls one recipient.
+  // Both spellings, since the database column and the domain type differ.
+  "displayName",
+  "*.displayName",
+  "display_name",
+  "*.display_name",
   "senderName",
   "*.senderName",
   // Emails

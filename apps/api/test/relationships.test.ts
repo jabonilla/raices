@@ -5,6 +5,7 @@ import type { Database } from "../src/db/schema.js";
 import {
   INVITATION_WINDOW_DAYS,
   InvitationExpiredError,
+  RelationshipAlreadyExistsError,
   activate,
   findOrCreateUserByPhone,
   invitationExpiresAt,
@@ -215,6 +216,106 @@ describe("many-to-many", () => {
                as relationships
     `.execute(db);
     expect(rows[0]).toEqual({ users: "1", relationships: "2" });
+  });
+});
+
+describe("one live relationship per pair", () => {
+  it("refuses a second invitation while one is live", async () => {
+    const sender = await aSender();
+    const recipient = await aRecipient();
+    await invite(db, { senderId: sender, recipientId: recipient });
+
+    await expect(invite(db, { senderId: sender, recipientId: recipient })).rejects.toThrow(
+      RelationshipAlreadyExistsError,
+    );
+  });
+
+  it("refuses one in the other direction too", async () => {
+    const sender = await aSender();
+    const recipient = await aRecipient();
+    await invite(db, { senderId: sender, recipientId: recipient });
+
+    await expect(invite(db, { senderId: recipient, recipientId: sender })).rejects.toThrow(
+      RelationshipAlreadyExistsError,
+    );
+  });
+
+  it("allows a fresh relationship after the previous one is terminated", async () => {
+    const sender = await aSender();
+    const recipient = await aRecipient();
+    const first = await invite(db, { senderId: sender, recipientId: recipient });
+    await terminate(db, { relationshipId: first.id, actor: systemActor });
+
+    const second = await invite(db, { senderId: sender, recipientId: recipient });
+    expect(second.id).not.toBe(first.id);
+
+    // Both rows survive: the history of the ended relationship is retained
+    // alongside the new one.
+    const { rows } = await sql<{ count: string }>`
+      select count(*)::text as count from relationship
+       where least(user_a_id, user_b_id) = least(${sender}::uuid, ${recipient}::uuid)
+         and greatest(user_a_id, user_b_id) = greatest(${sender}::uuid, ${recipient}::uuid)
+    `.execute(db);
+    expect(rows[0]?.count).toBe("2");
+  });
+
+  // The many-to-many rule is untouched by this: the constraint is per pair,
+  // not per person.
+  it("still lets a sender hold live relationships with several recipients", async () => {
+    const sender = await aSender();
+    for (const recipient of await Promise.all([aRecipient(), aRecipient(), aRecipient()])) {
+      await expect(invite(db, { senderId: sender, recipientId: recipient })).resolves.toBeDefined();
+    }
+  });
+});
+
+describe("display name", () => {
+  it("records what this sender calls this recipient", async () => {
+    const r = await invite(db, {
+      senderId: await aSender(),
+      recipientId: await aRecipient(),
+      displayName: "Tía Rosa",
+    });
+
+    const row = await db
+      .selectFrom("relationship")
+      .select("display_name")
+      .where("id", "=", r.id)
+      .executeTakeFirstOrThrow();
+    expect(row.display_name).toBe("Tía Rosa");
+  });
+
+  // It belongs on the relationship, not the user: two senders may know the
+  // same person by different names, and neither renames them globally.
+  it("lets two senders name the same recipient differently", async () => {
+    const recipient = await aRecipient();
+    const one = await invite(db, {
+      senderId: await aSender(),
+      recipientId: recipient,
+      displayName: "Mamá",
+    });
+    const two = await invite(db, {
+      senderId: await aSender(),
+      recipientId: recipient,
+      displayName: "Doña Elena",
+    });
+
+    const rows = await db
+      .selectFrom("relationship")
+      .select(["id", "display_name"])
+      .where("id", "in", [one.id, two.id])
+      .execute();
+    expect(rows.map((r) => r.display_name).sort()).toEqual(["Doña Elena", "Mamá"]);
+  });
+
+  it("leaves it null when the inviter gives none", async () => {
+    const r = await invite(db, { senderId: await aSender(), recipientId: await aRecipient() });
+    const row = await db
+      .selectFrom("relationship")
+      .select("display_name")
+      .where("id", "=", r.id)
+      .executeTakeFirstOrThrow();
+    expect(row.display_name).toBeNull();
   });
 });
 

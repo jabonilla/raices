@@ -259,6 +259,117 @@ describe("relationship integrity", () => {
   });
 });
 
+/**
+ * One live relationship per pair of people. A duplicate live relationship
+ * would give the same two people two plans, two sets of caps and two request
+ * streams that cannot see each other, which makes every P2.3 spend cap
+ * bypassable by inviting twice.
+ */
+describe("one live relationship per pair", () => {
+  async function pair(): Promise<{ a: string; b: string }> {
+    return { a: await insertUser(), b: await insertUser({ roles: ["recipient"] }) };
+  }
+
+  async function relate(
+    a: string,
+    b: string,
+    roleOfA: string,
+    roleOfB: string,
+    status = "invited",
+  ): Promise<string | undefined> {
+    return failureCode(
+      `insert into relationship (user_a_id, user_b_id, role_of_a, role_of_b, status)
+       values ($1, $2, $3, $4, $5)`,
+      { values: [a, b, roleOfA, roleOfB, status] },
+    );
+  }
+
+  it("accepts the first relationship for a pair", async () => {
+    const { a, b } = await pair();
+    expect(await relate(a, b, "sender", "recipient")).toBeUndefined();
+  });
+
+  it("rejects a second live relationship for the same pair", async () => {
+    const { a, b } = await pair();
+    await relate(a, b, "sender", "recipient");
+    expect(await relate(a, b, "sender", "recipient")).toBe(UNIQUE_VIOLATION);
+  });
+
+  // least/greatest rather than the raw columns, so a duplicate cannot sneak
+  // in by swapping which user is on which side.
+  it("rejects a duplicate with the sides swapped", async () => {
+    const { a, b } = await pair();
+    await relate(a, b, "sender", "recipient");
+    expect(await relate(b, a, "recipient", "sender")).toBe(UNIQUE_VIOLATION);
+  });
+
+  it("rejects a duplicate in any live status", async () => {
+    for (const status of ["invited", "active", "paused"]) {
+      const { a, b } = await pair();
+      await relate(a, b, "sender", "recipient", status);
+      expect(await relate(a, b, "sender", "recipient")).toBe(UNIQUE_VIOLATION);
+    }
+  });
+
+  // A relationship that ended and restarted is genuinely a new one, and the
+  // audit trail should show both.
+  it("allows a new relationship once the previous one is terminated", async () => {
+    const { a, b } = await pair();
+    await relate(a, b, "sender", "recipient", "terminated");
+    expect(await relate(a, b, "sender", "recipient")).toBeUndefined();
+  });
+
+  it("allows several terminated relationships for one pair", async () => {
+    const { a, b } = await pair();
+    await relate(a, b, "sender", "recipient", "terminated");
+    await relate(a, b, "sender", "recipient", "terminated");
+    expect(await relate(a, b, "sender", "recipient", "terminated")).toBeUndefined();
+  });
+
+  it("does not constrain different pairs", async () => {
+    const { a, b } = await pair();
+    const c = await insertUser({ roles: ["recipient"] });
+    await relate(a, b, "sender", "recipient");
+    expect(await relate(a, c, "sender", "recipient")).toBeUndefined();
+  });
+});
+
+describe("relationship display name", () => {
+  async function insertWithName(name: unknown): Promise<string | undefined> {
+    const a = await insertUser();
+    const b = await insertUser({ roles: ["recipient"] });
+    return failureCode(
+      `insert into relationship (user_a_id, user_b_id, role_of_a, role_of_b, display_name)
+       values ($1, $2, 'sender', 'recipient', $3)`,
+      { values: [a, b, name] },
+    );
+  }
+
+  it("accepts a display name", async () => {
+    expect(await insertWithName("Tía Rosa")).toBeUndefined();
+  });
+
+  // Null means null. Nothing is inferred from the phone number and there is
+  // no "Recipient 2" default.
+  it("accepts no display name at all", async () => {
+    expect(await insertWithName(null)).toBeUndefined();
+  });
+
+  it("defaults to null rather than a placeholder", async () => {
+    const a = await insertUser();
+    const b = await insertUser({ roles: ["recipient"] });
+    const name = await withClient(async (c) => {
+      const { rows } = await c.query<{ display_name: string | null }>(
+        `insert into relationship (user_a_id, user_b_id, role_of_a, role_of_b)
+         values ($1, $2, 'sender', 'recipient') returning display_name`,
+        [a, b],
+      );
+      return rows[0]?.display_name;
+    });
+    expect(name).toBeNull();
+  });
+});
+
 describe("status changes are governed by the database", () => {
   async function aRelationship(): Promise<string> {
     const a = await insertUser();

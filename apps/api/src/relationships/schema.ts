@@ -41,6 +41,8 @@ export interface RelationshipTable {
   user_b_id: ColumnType<string, string, never>;
   role_of_a: ColumnType<UserRole, UserRole, never>;
   role_of_b: ColumnType<UserRole, UserRole, never>;
+  /** What this sender calls this recipient. PII; redacted in logs. */
+  display_name: ColumnType<string | null, string | null | undefined, string | null>;
   status: Generated<RelationshipStatus>;
   invited_at: Generated<Date>;
   activated_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
