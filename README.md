@@ -55,6 +55,14 @@ The Android production JS bundle must stay under **2,500,000 bytes** (2.38 MiB).
 - To re-measure: run `pnpm check:bundle-budget` and read the printed size.
 - To raise the budget: update `BUDGET_BYTES` in `scripts/check-bundle-budget.ts` and say why in the PR. Never bump it silently to make CI pass.
 
+### API telemetry
+
+`apps/api` emits one span per HTTP request plus spans for DB transactions run through `withTracedSerializableTx` (`apps/api/src/telemetry.ts`). The tracer is dependency-free and emits OpenTelemetry-shaped JSON.
+
+- `TELEMETRY_EXPORTER=console|none` selects the exporter. Default is `console` in dev (`NODE_ENV` unset or `development`) and `none` elsewhere.
+- Span attributes go through the K2.5 redaction deny-list: no PII and no amounts in span names or attributes, same rule as the logs. Span names use the route pattern (`HTTP GET /postings/:id`), never the raw URL.
+- Transaction spans record `db.tx.attempts` (the retry attempt count from `withSerializableTx`) and `db.tx.last_sql_state`, so contention is observable instead of inferred from failures.
+
 ## Architecture
 
 The stack and the reasons behind it are recorded as ADRs:

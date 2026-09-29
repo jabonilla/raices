@@ -7,6 +7,7 @@ import { NotFoundError, toApiError } from "./errors.js";
 import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
 import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
 import { buildOpenApiDocument } from "./openapi.js";
+import { registerTelemetry } from "./telemetry.js";
 
 export interface HealthResponse {
   readonly ok: true;
@@ -69,6 +70,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     max: options.rateLimitMax ?? 600,
     windowMs: options.rateLimitWindowMs ?? 60_000,
   });
+
+  // One span per HTTP request (K2.25). Registered before the other hooks so
+  // the span covers the whole request lifecycle.
+  registerTelemetry(app);
 
   // Echo the request ID in the response header, and ensure it's on
   // every log line for the request via the child logger.
