@@ -50,6 +50,8 @@ export interface WebhookAcceptedBody {
  * POST /webhooks/channel — the receiving half of the channel seam.
  *
  * Pipeline, in order:
+ * 0. Rate limiting, explicit at the route (the global hook exempts this
+ *    path to avoid double-counting the same check).
  * 1. Signature verification → 401 through the envelope when it fails.
  * 2. Zod payload-shape validation → 400 through the envelope when malformed.
  * 3. `adapter.normalizeWebhook` — never throws (issue #41 is a test now).
@@ -61,53 +63,49 @@ export interface WebhookAcceptedBody {
  * 256 KiB, Zod rejects non-objects, and normalization is total.
  */
 export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDeps): void {
-  app.post(
-    "/webhooks/channel",
-    {
-      preHandler: async (request, reply) => {
-        await deps.rateLimitCheck(request, reply);
-      },
-    },
-    async (request, reply): Promise<WebhookAcceptedBody> => {
-      // 1. Signature. Fastify has already parsed the body, so re-serialize is
-      // not the raw bytes — the skeleton documents this gap honestly: the
-      // fake signs the parsed-then-stringified form, and the real verifier in
-      // Phase 3 will hook the raw body via a content parser. For the skeleton
-      // the interface (rawBody in, boolean out) is the deliverable.
-      const rawBody = Buffer.from(JSON.stringify(request.body ?? null));
-      const header = request.headers[WEBHOOK_SIGNATURE_HEADER];
-      const signature = Array.isArray(header) ? header[0] : header;
-      if (!deps.verifier.verify({ rawBody, signature })) {
-        throw new UnauthorizedError("Invalid webhook signature.");
+  app.post("/webhooks/channel", async (request, reply): Promise<WebhookAcceptedBody> => {
+    // 0. Rate limit, explicit at the route. The global onRequest hook
+    // exempts this path to avoid double-counting; the same check runs
+    // here, first, before any other work.
+    await deps.rateLimitCheck(request, reply);
+    // 1. Signature. Fastify has already parsed the body, so re-serialize is
+    // not the raw bytes — the skeleton documents this gap honestly: the
+    // fake signs the parsed-then-stringified form, and the real verifier in
+    // Phase 3 will hook the raw body via a content parser. For the skeleton
+    // the interface (rawBody in, boolean out) is the deliverable.
+    const rawBody = Buffer.from(JSON.stringify(request.body ?? null));
+    const header = request.headers[WEBHOOK_SIGNATURE_HEADER];
+    const signature = Array.isArray(header) ? header[0] : header;
+    if (!deps.verifier.verify({ rawBody, signature })) {
+      throw new UnauthorizedError("Invalid webhook signature.");
+    }
+
+    // 2. Payload shape.
+    const parsed = WebhookPayloadSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new BadRequestError("Webhook payload must be a JSON object.");
+    }
+
+    // 3. Normalize. Total by contract — this is where issue #41 stops being
+    // a convention and becomes a test (packages/channels/test).
+    const event = deps.adapter.normalizeWebhook(parsed.data);
+
+    // 4 + 5. Dedupe inbound messages, then hand off.
+    if (event.type === "inbound") {
+      const duplicate = deps.deduplicator.checkAndMark(event.message.providerMessageId);
+      if (duplicate) {
+        request.log.debug(
+          { providerMessageId: event.message.providerMessageId },
+          "duplicate webhook ignored",
+        );
+        return { ok: true, deduped: true };
       }
+    }
 
-      // 2. Payload shape.
-      const parsed = WebhookPayloadSchema.safeParse(request.body);
-      if (!parsed.success) {
-        throw new BadRequestError("Webhook payload must be a JSON object.");
-      }
-
-      // 3. Normalize. Total by contract — this is where issue #41 stops being
-      // a convention and becomes a test (packages/channels/test).
-      const event = deps.adapter.normalizeWebhook(parsed.data);
-
-      // 4 + 5. Dedupe inbound messages, then hand off.
-      if (event.type === "inbound") {
-        const duplicate = deps.deduplicator.checkAndMark(event.message.providerMessageId);
-        if (duplicate) {
-          request.log.debug(
-            { providerMessageId: event.message.providerMessageId },
-            "duplicate webhook ignored",
-          );
-          return { ok: true, deduped: true };
-        }
-      }
-
-      const handleEvent = deps.handleEvent ?? handleWebhookEvent;
-      await handleEvent(event, request.log);
-      const statusCode = event.type === "inbound" ? 202 : 200;
-      reply.status(statusCode);
-      return { ok: true, deduped: false };
-    },
-  );
+    const handleEvent = deps.handleEvent ?? handleWebhookEvent;
+    await handleEvent(event, request.log);
+    const statusCode = event.type === "inbound" ? 202 : 200;
+    reply.status(statusCode);
+    return { ok: true, deduped: false };
+  });
 }

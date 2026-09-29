@@ -180,7 +180,7 @@ describe("POST /webhooks/channel (K2.28)", () => {
             "content-type": "application/json",
             [WEBHOOK_SIGNATURE_HEADER]: SIGNATURE,
           },
-          payload: JSON.stringify(inboundPayload(`m-rl-${i}`)),
+          payload: JSON.stringify(inboundPayload(`m-rl-${String(i)}`)),
         });
         statuses.push(response.statusCode);
       }
