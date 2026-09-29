@@ -62,11 +62,29 @@ function aPhone(): string {
 }
 
 async function insertUser(overrides: Record<string, unknown> = {}): Promise<string> {
-  const row = { phone: aPhone(), roles: ["sender"], ...overrides };
+  const row = {
+    phone: aPhone(),
+    roles: ["sender"],
+    locale: "es",
+    preferred_channel: "whatsapp",
+    kyc_status: "not_started",
+    identity_assurance_level: null,
+    ...overrides,
+  };
   return withClient(async (client) => {
     const { rows } = await client.query<{ id: string }>(
-      `insert into app_user (phone, roles) values ($1, $2) returning id`,
-      [row.phone, row.roles],
+      `insert into app_user
+         (phone, roles, locale, preferred_channel, kyc_status, identity_assurance_level)
+       values ($1, $2, $3, $4, $5, $6)
+       returning id`,
+      [
+        row.phone,
+        row.roles,
+        row.locale,
+        row.preferred_channel,
+        row.kyc_status,
+        row.identity_assurance_level,
+      ],
     );
     const id = rows[0]?.id;
     if (id === undefined) throw new Error("no id returned");
@@ -287,9 +305,7 @@ describe("status changes are governed by the database", () => {
       ]),
     );
     const code = await failureCode(
-      `begin;
-       update relationship set status = 'active', activated_at = now() where id = $1;
-       commit;`,
+      `update relationship set status = 'active', activated_at = now() where id = $1`,
       { values: [id] },
     );
     // The expiry guard fires before the audit guard: the point is that it is
@@ -333,9 +349,7 @@ describe("grants", () => {
   });
 
   it("does not let the app role delete a user or a relationship", async () => {
-    expect(await failureCode("delete from app_user", { role: "app" })).toBe(
-      INSUFFICIENT_PRIVILEGE,
-    );
+    expect(await failureCode("delete from app_user", { role: "app" })).toBe(INSUFFICIENT_PRIVILEGE);
     expect(await failureCode("delete from relationship", { role: "app" })).toBe(
       INSUFFICIENT_PRIVILEGE,
     );

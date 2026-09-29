@@ -245,9 +245,9 @@ describe("invitation expiry is derived, not scheduled", () => {
     const r = await invite(db, { senderId: await aSender(), recipientId: await aRecipient() });
     await backdateInvitation(r.id, 15);
 
-    await expect(
-      activate(db, { relationshipId: r.id, actor: systemActor }),
-    ).rejects.toThrow(InvitationExpiredError);
+    await expect(activate(db, { relationshipId: r.id, actor: systemActor })).rejects.toThrow(
+      InvitationExpiredError,
+    );
 
     expect(await statusOf(r.id)).toBe("invited");
     expect(await auditTrail(r.id)).toEqual([]);
