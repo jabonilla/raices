@@ -14,7 +14,8 @@
     "test": "vitest run",
     "check:bundle-budget": "tsx scripts/check-bundle-budget.ts",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "demo": "tsx scripts/demo.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
