@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { RateLimitedError } from "./errors.js";
 
@@ -48,14 +48,18 @@ export function registerSecurityHeaders(app: FastifyInstance): void {
  *
  * The liveness probe is exempt: the platform must always be able to tell a
  * live process from a dead one, even under load.
+ *
+ * Returns the check function so security-sensitive routes (webhooks) can
+ * also enforce it explicitly in a preHandler, where static analysis can see
+ * it — the global onRequest hook is invisible to CodeQL's taint tracking.
  */
-export function registerRateLimit(app: FastifyInstance, options: RateLimitOptions): void {
+export function registerRateLimit(
+  app: FastifyInstance,
+  options: RateLimitOptions,
+): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
   const windows = new Map<string, WindowState>();
 
-  app.addHook("onRequest", async (request, reply) => {
-    if (request.url === "/health") {
-      return;
-    }
+  const check = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const now = Date.now();
     for (const [key, state] of windows) {
       if (state.resetAt <= now) {
@@ -72,5 +76,17 @@ export function registerRateLimit(app: FastifyInstance, options: RateLimitOption
       reply.header("Retry-After", Math.max(1, Math.ceil((state.resetAt - now) / 1000)));
       throw new RateLimitedError();
     }
+  };
+
+  app.addHook("onRequest", async (request, reply) => {
+    // /health is exempt (liveness must always answer); /webhooks/channel
+    // enforces the same check explicitly in its own preHandler, where the
+    // protection is visible at the route.
+    if (request.url === "/health" || request.url === "/webhooks/channel") {
+      return;
+    }
+    await check(request, reply);
   });
+
+  return check;
 }
