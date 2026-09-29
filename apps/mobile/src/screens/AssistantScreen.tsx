@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, TextInput as RNTextInput, View } from "re
 
 import "../../src/i18n";
 import { Card } from "../components/Card";
+import { ScreenState, type ScreenContentState } from "../components/ScreenState";
 import { tokens } from "../theme/tokens";
 
 /**
@@ -11,9 +12,44 @@ import { tokens } from "../theme/tokens";
  * 9): it explains, it never acts, and the refusal is a first-class string.
  * No avatar, no name — a breathing dot and Tierra Pale are the only
  * authorship signals.
+ *
+ * `screenState` renders the loading / empty / error / offline shells (K2.21).
+ * The empty state carries no action: the input row is the path forward.
+ * TODO(copy): assistant.states.* are invented — the copy sheet and the DS
+ * specify no empty or error copy for Asistente. Listed in the PR for Claude
+ * (copy owner).
  */
-export function AssistantScreen(): JSX.Element {
+export function AssistantScreen({
+  screenState = "content",
+}: {
+  readonly screenState?: ScreenContentState;
+}): JSX.Element {
   const { t } = useTranslation();
+  if (screenState === "loading" || screenState === "offline") {
+    return <ScreenState kind={screenState} />;
+  }
+  if (screenState === "empty") {
+    return (
+      <ScreenState
+        kind="empty"
+        title={t("assistant.states.emptyTitle")}
+        body={t("assistant.states.emptyBody")}
+      />
+    );
+  }
+  if (screenState === "error") {
+    return (
+      <ScreenState
+        kind="error"
+        title={t("assistant.states.errorTitle")}
+        body={t("states.errorBody")}
+        primaryLabel={t("states.retry")}
+        onPrimaryPress={() => {}}
+        secondaryLabel={t("states.askAi")}
+        onSecondaryPress={() => {}}
+      />
+    );
+  }
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>

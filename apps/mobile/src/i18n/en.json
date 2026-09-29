@@ -12,7 +12,12 @@
     "relationship": "Your wife",
     "recipientName": "María",
     "category": "Food",
-    "amount": "$95.00"
+    "amount": "$95.00",
+    "states": {
+      "emptyBody": "Nothing is waiting for your answer.",
+      "emptyTitle": "All caught up.",
+      "errorTitle": "We couldn't load this request."
+    }
   },
   "assistant": {
     "aiAnswer1": "It doesn't fit any category in your plan and we don't recognize the place. No one said it's wrong — it just needs to be confirmed.",
@@ -30,7 +35,12 @@
     "title": "Assistant",
     "userQuestion1": "Why did the $120 payment go to review?",
     "userQuestion2": "And how much does María get in quetzales?",
-    "refAmount": "$120.00"
+    "refAmount": "$120.00",
+    "states": {
+      "emptyBody": "Ask anything — I'll explain what's happening with your money.",
+      "emptyTitle": "No conversation yet.",
+      "errorTitle": "We couldn't load the conversation."
+    }
   },
   "goal": {
     "ofStage": "{{done}} of {{total}}",
@@ -54,7 +64,13 @@
     "stage2Done": "$4,400",
     "stage2Total": "$5,000",
     "stage3Amount": "$3,500",
-    "stage4Amount": "$2,500"
+    "stage4Amount": "$2,500",
+    "states": {
+      "emptyAction": "Create my goal",
+      "emptyBody": "Give a name to what you're building.",
+      "emptyTitle": "What are you saving for?",
+      "errorTitle": "We couldn't load your goal."
+    }
   },
   "goalCard": {
     "percent": "{{percent}}%",
@@ -85,7 +101,13 @@
     "recentFoodAmount": "$95.00",
     "recentHousingCategory": "Housing",
     "recentHousingPurpose": "March rent",
-    "recentHousingAmount": "$400.00"
+    "recentHousingAmount": "$400.00",
+    "states": {
+      "emptyAction": "Send now",
+      "emptyBody": "Everything stays saved.",
+      "emptyTitle": "When you send your first payment, you'll see it here.",
+      "errorTitle": "We couldn't load your history."
+    }
   },
   "home": {
     "balanceHere": "Here (U.S.)",
@@ -104,7 +126,21 @@
     "recent1Amount": "$400.00",
     "recent2Category": "Uncategorized",
     "recent2Purpose": "Uncategorized payment",
-    "recent2Amount": "$120.00"
+    "recent2Amount": "$120.00",
+    "states": {
+      "emptyAction": "Send now",
+      "emptyBody": "When you do, you'll see it here.",
+      "emptyTitle": "You haven't sent anything yet.",
+      "errorTitle": "We couldn't load your home screen."
+    }
+  },
+  "states": {
+    "askAi": "Ask the assistant",
+    "errorBody": "Try again in a few minutes. If it still doesn't work, ask the assistant.",
+    "loading": "Loading…",
+    "offlineBody": "Signal dropped for a moment. Everything is saved — try again when you're back online.",
+    "offlineTitle": "You're offline",
+    "retry": "Try again"
   },
   "statusBadge": {
     "approved": "✓ Sent",
