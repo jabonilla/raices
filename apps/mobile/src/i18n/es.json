@@ -186,5 +186,27 @@
     "back": "Atrás",
     "invitedLabel": "Invitación",
     "statusRowLabel": "Estado"
+  },
+  "notifications": {
+    "transfer_received": {
+      "title": "Tienes una novedad",
+      "body": "Abre Raíces para ver qué cambió."
+    },
+    "transfer_approved": {
+      "title": "Tu solicitud fue aprobada",
+      "body": "Abre Raíces para ver los detalles."
+    },
+    "transfer_needs_approval": {
+      "title": "Algo necesita tu aprobación",
+      "body": "Abre Raíces para revisarlo."
+    },
+    "invite_received": {
+      "title": "Te han invitado",
+      "body": "Abre Raíces para ver la invitación."
+    },
+    "relationship_updated": {
+      "title": "Algo cambió",
+      "body": "Abre Raíces para ver lo último."
+    }
   }
 }
