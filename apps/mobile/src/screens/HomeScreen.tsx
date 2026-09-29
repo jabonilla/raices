@@ -4,15 +4,51 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import "../../src/i18n";
 import { Card } from "../components/Card";
+import { ScreenState, type ScreenContentState } from "../components/ScreenState";
 import { TransactionCard } from "../components/TransactionCard";
 import { tokens } from "../theme/tokens";
 
 /**
  * 01 · Inicio — static shell. Copy sheet `claude_raices-ux-mvp-v0-copy-sheet.md`.
  * No backend calls; amounts are static copy strings, never computed.
+ *
+ * `screenState` renders the loading / empty / error / offline shells (K2.21).
+ * TODO(copy): home.states.* are invented — the copy sheet and the DS specify
+ * no empty or error copy for Inicio. Listed in the PR for Claude (copy owner).
  */
-export function HomeScreen(): JSX.Element {
+export function HomeScreen({
+  screenState = "content",
+}: {
+  readonly screenState?: ScreenContentState;
+}): JSX.Element {
   const { t } = useTranslation();
+  if (screenState === "loading" || screenState === "offline") {
+    return <ScreenState kind={screenState} />;
+  }
+  if (screenState === "empty") {
+    return (
+      <ScreenState
+        kind="empty"
+        title={t("home.states.emptyTitle")}
+        body={t("home.states.emptyBody")}
+        primaryLabel={t("home.states.emptyAction")}
+        onPrimaryPress={() => {}}
+      />
+    );
+  }
+  if (screenState === "error") {
+    return (
+      <ScreenState
+        kind="error"
+        title={t("home.states.errorTitle")}
+        body={t("states.errorBody")}
+        primaryLabel={t("states.retry")}
+        onPrimaryPress={() => {}}
+        secondaryLabel={t("states.askAi")}
+        onSecondaryPress={() => {}}
+      />
+    );
+  }
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.greeting}>{t("home.greeting", { name: "Carlos" })}</Text>

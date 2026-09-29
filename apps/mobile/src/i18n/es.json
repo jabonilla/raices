@@ -12,7 +12,12 @@
     "relationship": "Tu esposa",
     "recipientName": "María",
     "category": "Comida",
-    "amount": "$95.00"
+    "amount": "$95.00",
+    "states": {
+      "emptyBody": "No hay nada esperando tu respuesta.",
+      "emptyTitle": "Todo al día.",
+      "errorTitle": "No pudimos cargar este pedido."
+    }
   },
   "assistant": {
     "aiAnswer1": "No cae en ninguna categoría de tu plan y el lugar no lo reconocemos. Nadie ha dicho que esté mal — solo falta confirmarlo.",
@@ -30,7 +35,12 @@
     "title": "Asistente",
     "userQuestion1": "¿Por qué el pago de $120 salió para revisar?",
     "userQuestion2": "¿Y cuánto le llega a María en quetzales?",
-    "refAmount": "$120.00"
+    "refAmount": "$120.00",
+    "states": {
+      "emptyBody": "Pregunta lo que quieras — te explico lo que pasa con tu dinero.",
+      "emptyTitle": "Todavía no hay conversación.",
+      "errorTitle": "No pudimos cargar la conversación."
+    }
   },
   "goal": {
     "ofStage": "{{done}} de {{total}}",
@@ -54,7 +64,13 @@
     "stage2Done": "$4,400",
     "stage2Total": "$5,000",
     "stage3Amount": "$3,500",
-    "stage4Amount": "$2,500"
+    "stage4Amount": "$2,500",
+    "states": {
+      "emptyAction": "Crear mi meta",
+      "emptyBody": "Ponle nombre a lo que estás construyendo.",
+      "emptyTitle": "¿Para qué estás ahorrando?",
+      "errorTitle": "No pudimos cargar tu meta."
+    }
   },
   "goalCard": {
     "percent": "{{percent}}%",
@@ -85,7 +101,13 @@
     "recentFoodAmount": "$95.00",
     "recentHousingCategory": "Vivienda",
     "recentHousingPurpose": "Renta de marzo",
-    "recentHousingAmount": "$400.00"
+    "recentHousingAmount": "$400.00",
+    "states": {
+      "emptyAction": "Enviar ahora",
+      "emptyBody": "Todo queda guardado.",
+      "emptyTitle": "Cuando envíes tu primer pago, lo vas a ver aquí.",
+      "errorTitle": "No pudimos cargar tu historial."
+    }
   },
   "home": {
     "balanceHere": "Aquí (EE.UU.)",
@@ -104,7 +126,21 @@
     "recent1Amount": "$400.00",
     "recent2Category": "Sin categoría",
     "recent2Purpose": "Pago sin categoría",
-    "recent2Amount": "$120.00"
+    "recent2Amount": "$120.00",
+    "states": {
+      "emptyAction": "Enviar ahora",
+      "emptyBody": "Cuando lo hagas, lo verás aquí.",
+      "emptyTitle": "Todavía no has enviado nada.",
+      "errorTitle": "No pudimos cargar tu inicio."
+    }
+  },
+  "states": {
+    "askAi": "Preguntar al asistente",
+    "errorBody": "Intenta de nuevo en unos minutos. Si sigue sin funcionar, pregúntale al asistente.",
+    "loading": "Cargando…",
+    "offlineBody": "Sin señal por un momento. Todo sigue guardado — intenta cuando tengas conexión.",
+    "offlineTitle": "Sin conexión",
+    "retry": "Intentar de nuevo"
   },
   "statusBadge": {
     "approved": "✓ Enviado",
