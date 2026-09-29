@@ -134,5 +134,57 @@
     "history": "Historial",
     "home": "Inicio",
     "send": "Enviar"
+  },
+  "phone": {
+    "countries": {
+      "GT": "Guatemala",
+      "US": "Estados Unidos",
+      "MX": "México",
+      "SV": "El Salvador",
+      "HN": "Honduras",
+      "ES": "España"
+    },
+    "countryLabel": "Código de país: {{country}}",
+    "placeholder": "5550 1234",
+    "errors": {
+      "required": "Escribe el número de teléfono.",
+      "plus": "El número debe empezar con + y el código del país. Ejemplo: +502 5550 1234.",
+      "digits": "Después del + solo van dígitos, sin espacios ni letras.",
+      "tooShort": "El número está muy corto. Revisa que esté completo.",
+      "tooLong": "El número está muy largo. Los números internacionales tienen máximo 15 dígitos."
+    }
+  },
+  "invite": {
+    "title": "Invitar",
+    "nameLabel": "¿Cómo le dices a esta persona?",
+    "namePlaceholder": "Mamá",
+    "phoneLabel": "Número de teléfono",
+    "submit": "Enviar invitación",
+    "errors": {
+      "nameRequired": "Escribe cómo le dices a esta persona. Es lo que verá en tu lista."
+    },
+    "inviteAnother": "Invitar a otra persona"
+  },
+  "relationships": {
+    "title": "Personas",
+    "status": {
+      "invited": "Invitada",
+      "active": "Activa",
+      "paused": "En pausa",
+      "terminated": "Terminada"
+    },
+    "statusLabel": "Estado: {{status}}",
+    "expiresInDays": "Vence en {{count}} días",
+    "expiresInHours": "Vence en {{count}} horas",
+    "expired": "Vencida",
+    "resend": "Reenviar invitación",
+    "phoneLabel": "Teléfono",
+    "invitedOn": "Invitada el {{date}}",
+    "inviteAction": "Invitar a alguien",
+    "resentOk": "Invitación reenviada.",
+    "emptyBody": "Todavía no tienes personas en tu lista. Invita a alguien para empezar.",
+    "back": "Atrás",
+    "invitedLabel": "Invitación",
+    "statusRowLabel": "Estado"
   }
 }

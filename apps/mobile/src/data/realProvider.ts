@@ -16,4 +16,5 @@ export const realProvider: ScreenDataProvider = {
   getGoalData: notImplemented,
   getHistoryData: notImplemented,
   getAssistantData: notImplemented,
+  getRelationshipsData: notImplemented,
 };
