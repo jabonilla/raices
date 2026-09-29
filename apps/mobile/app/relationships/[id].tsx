@@ -14,9 +14,12 @@ export default function RelationshipDetailRoute(): JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
   return (
     <ScreenData provider={fixtureProvider}>
-      <RelationshipDetailScreen relationshipId={id} onBack={() => {
-        router.back();
-      }} />
+      <RelationshipDetailScreen
+        relationshipId={id}
+        onBack={() => {
+          router.back();
+        }}
+      />
     </ScreenData>
   );
 }

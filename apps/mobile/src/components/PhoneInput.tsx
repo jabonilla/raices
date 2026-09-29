@@ -101,8 +101,7 @@ export function PhoneInput({
   style,
 }: PhoneInputProps): JSX.Element {
   const { t } = useTranslation();
-  const fallback =
-    COUNTRIES.find((c) => c.code === defaultCountry) ?? { code: "GT", dial: "+502" };
+  const fallback = COUNTRIES.find((c) => c.code === defaultCountry) ?? { code: "GT", dial: "+502" };
   const [country, setCountry] = useState<Country>(() => countryForValue(value, fallback));
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -127,7 +126,9 @@ export function PhoneInput({
       <Text style={[styles.label, hasError && styles.labelError]}>{label}</Text>
       <View style={styles.row}>
         <Pressable
-          accessibilityLabel={t("phone.countryLabel", { country: t(`phone.countries.${country.code}`) })}
+          accessibilityLabel={t("phone.countryLabel", {
+            country: t(`phone.countries.${country.code}`),
+          })}
           accessibilityRole="button"
           accessibilityState={{ expanded: pickerOpen, disabled }}
           disabled={disabled}
@@ -168,8 +169,8 @@ export function PhoneInput({
                 accessibilityLabel={`${t(`phone.countries.${c.code}`)} ${c.dial}`}
                 disabled={disabled}
                 onPress={() => {
-                selectCountry(c);
-              }}
+                  selectCountry(c);
+                }}
                 style={[styles.option, selected && styles.optionSelected]}
               >
                 <Text style={styles.optionText}>

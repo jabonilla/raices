@@ -86,7 +86,9 @@ describe("InviteScreen", () => {
   it("requires both fields and explains in plain Spanish", () => {
     renderWithFixture(<InviteScreen />);
     fireEvent.click(screen.getByRole("button", { name: "Enviar invitación" }));
-    expect(screen.getByText("Escribe cómo le dices a esta persona. Es lo que verá en tu lista.")).toBeTruthy();
+    expect(
+      screen.getByText("Escribe cómo le dices a esta persona. Es lo que verá en tu lista."),
+    ).toBeTruthy();
     expect(screen.getByText("Escribe el número de teléfono.")).toBeTruthy();
   });
 
@@ -105,7 +107,9 @@ describe("InviteScreen", () => {
     fireEvent.change(screen.getByLabelText("¿Cómo le dices a esta persona?"), {
       target: { value: "Mamá" },
     });
-    fireEvent.change(screen.getByLabelText("Número de teléfono"), { target: { value: "55501111" } });
+    fireEvent.change(screen.getByLabelText("Número de teléfono"), {
+      target: { value: "55501111" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Enviar invitación" }));
     // GT is the default country: the E.164 number is composed for the user.
     expect(screen.getByText("+50255501111")).toBeTruthy();
@@ -188,7 +192,10 @@ describe("displayName is PII: never logged (K2.27)", () => {
       calls.push(args.map(String).join(" "));
     };
     const methods = ["log", "warn", "error", "debug", "info"] as const;
-    const con = console as unknown as Record<(typeof methods)[number], (...args: unknown[]) => void>;
+    const con = console as unknown as Record<
+      (typeof methods)[number],
+      (...args: unknown[]) => void
+    >;
     const originals = methods.map((m) => con[m]);
     methods.forEach((m) => {
       con[m] = spy;
@@ -204,7 +211,9 @@ describe("displayName is PII: never logged (K2.27)", () => {
       fireEvent.change(screen.getByLabelText("¿Cómo le dices a esta persona?"), {
         target: { value: "Mamá" },
       });
-      fireEvent.change(screen.getByLabelText("Número de teléfono"), { target: { value: "55501111" } });
+      fireEvent.change(screen.getByLabelText("Número de teléfono"), {
+        target: { value: "55501111" },
+      });
       fireEvent.click(screen.getByRole("button", { name: "Enviar invitación" }));
       fireEvent.click(screen.getAllByRole("button", { name: "Reenviar invitación" })[0]);
     } finally {
@@ -229,7 +238,12 @@ describe("displayName is PII: never logged (K2.27)", () => {
       "RelationshipStatusBadge.tsx",
       "relationshipExpiry.ts",
     ]) {
-      const dir = file.endsWith(".ts") && !file.endsWith(".tsx") ? "screens" : file === "PhoneInput.tsx" || file === "RelationshipStatusBadge.tsx" ? "components" : "screens";
+      const dir =
+        file.endsWith(".ts") && !file.endsWith(".tsx")
+          ? "screens"
+          : file === "PhoneInput.tsx" || file === "RelationshipStatusBadge.tsx"
+            ? "components"
+            : "screens";
       const source = readFileSync(join(__dirname, "..", "src", dir, file), "utf8");
       expect(source, `${file} must not log (displayName is PII)`).not.toMatch(/console\./);
     }

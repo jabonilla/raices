@@ -73,7 +73,8 @@ export function RelationshipDetailScreen({
     );
   }
 
-  const expired = relationship.status === "invited" && isInvitationExpired(relationship.expiresAtISO);
+  const expired =
+    relationship.status === "invited" && isInvitationExpired(relationship.expiresAtISO);
   const days = fullDaysRemaining(relationship.expiresAtISO);
 
   return (
@@ -85,7 +86,10 @@ export function RelationshipDetailScreen({
           onPress={onBack}
           style={styles.back}
         >
-          <Text style={styles.backLabel}>{"< "}{t("relationships.back")}</Text>
+          <Text style={styles.backLabel}>
+            {"< "}
+            {t("relationships.back")}
+          </Text>
         </Pressable>
       ) : null}
       <Text style={styles.name}>{relationship.displayName}</Text>
@@ -108,7 +112,9 @@ export function RelationshipDetailScreen({
         <Text style={styles.countdown}>
           {days >= 1
             ? t("relationships.expiresInDays", { count: days })
-            : t("relationships.expiresInHours", { count: fullHoursRemaining(relationship.expiresAtISO) })}
+            : t("relationships.expiresInHours", {
+                count: fullHoursRemaining(relationship.expiresAtISO),
+              })}
         </Text>
       ) : null}
       {expired ? (
@@ -121,8 +127,8 @@ export function RelationshipDetailScreen({
               variant="primary"
               label={t("relationships.resend")}
               onPress={() => {
-              setResent(true);
-            }}
+                setResent(true);
+              }}
               style={styles.resend}
             />
           )}

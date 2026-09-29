@@ -42,7 +42,14 @@ function relationship(
   invitedDaysAgo: number,
 ): RelationshipItem {
   const invitedAtISO = daysAgoISO(invitedDaysAgo);
-  return { id, displayName, phoneE164, status, invitedAtISO, expiresAtISO: expiresAtISO(invitedAtISO) };
+  return {
+    id,
+    displayName,
+    phoneE164,
+    status,
+    invitedAtISO,
+    expiresAtISO: expiresAtISO(invitedAtISO),
+  };
 }
 
 /**

@@ -107,7 +107,12 @@ export function RelationshipsScreen({
           }}
         />
       ))}
-      <Button variant="primary" label={t("relationships.inviteAction")} onPress={() => onInvite?.()} style={styles.invite} />
+      <Button
+        variant="primary"
+        label={t("relationships.inviteAction")}
+        onPress={() => onInvite?.()}
+        style={styles.invite}
+      />
     </ScrollView>
   );
 }
@@ -124,7 +129,8 @@ function RelationshipRow({
   readonly onSelect: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const expired = relationship.status === "invited" && isInvitationExpired(relationship.expiresAtISO);
+  const expired =
+    relationship.status === "invited" && isInvitationExpired(relationship.expiresAtISO);
   return (
     <Pressable
       accessibilityRole="button"

@@ -107,7 +107,12 @@ export function InviteScreen({
             error={phoneError}
             style={styles.phone}
           />
-          <Button variant="primary" label={t("invite.submit")} onPress={submit} style={styles.submit} />
+          <Button
+            variant="primary"
+            label={t("invite.submit")}
+            onPress={submit}
+            style={styles.submit}
+          />
         </View>
       ) : (
         <View style={styles.confirm}>
@@ -117,7 +122,12 @@ export function InviteScreen({
           </Text>
           <Text style={styles.confirmName}>{sent.displayName}</Text>
           <Text style={styles.confirmPhone}>{sent.phoneE164}</Text>
-          <Button variant="primary" label={t("invite.inviteAnother")} onPress={reset} style={styles.submit} />
+          <Button
+            variant="primary"
+            label={t("invite.inviteAnother")}
+            onPress={reset}
+            style={styles.submit}
+          />
         </View>
       )}
     </ScrollView>
