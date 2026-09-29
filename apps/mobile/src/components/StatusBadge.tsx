@@ -1,6 +1,8 @@
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
+import "../i18n";
 import { tokens } from "../theme/tokens";
 
 export type TransactionStatus =
@@ -9,14 +11,15 @@ export type TransactionStatus =
 /**
  * Status vocabulary (design system 3.2). Spanish is primary and intentional.
  * Never alarm language: flagged is warm brown, declined is neutral gray.
+ * Copy lives in the locale files so the English fallback stays covered.
  */
-const STATUS_COPY: Record<TransactionStatus, string> = {
-  approved: "✓ Enviado",
-  pending: "Esperando",
-  flagged: "Para revisar",
-  emergency: "Urgente",
-  declined: "En pausa",
-  failed: "No llegó",
+const STATUS_KEYS: Record<TransactionStatus, string> = {
+  approved: "statusBadge.approved",
+  pending: "statusBadge.pending",
+  flagged: "statusBadge.flagged",
+  emergency: "statusBadge.emergency",
+  declined: "statusBadge.declined",
+  failed: "statusBadge.failed",
 };
 
 const STATUS_COLORS: Record<TransactionStatus, { fg: string; bg: string }> = {
@@ -38,14 +41,16 @@ export interface StatusBadgeProps {
  * not in the badge.
  */
 export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
+  const { t } = useTranslation();
   const colors = STATUS_COLORS[status];
+  const label = t(STATUS_KEYS[status]);
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={`Estado: ${STATUS_COPY[status]}`}
+      accessibilityLabel={t("statusBadge.statusLabel", { status: label })}
       style={[styles.badge, { backgroundColor: colors.bg }]}
     >
-      <Text style={[styles.text, { color: colors.fg }]}>{STATUS_COPY[status]}</Text>
+      <Text style={[styles.text, { color: colors.fg }]}>{label}</Text>
     </View>
   );
 }
