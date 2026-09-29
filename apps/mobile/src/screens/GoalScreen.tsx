@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import "../../src/i18n";
 import { Card } from "../components/Card";
 import { ScreenState, type ScreenContentState } from "../components/ScreenState";
+import { useScreenData } from "../data/ScreenDataContext";
 import { tokens } from "../theme/tokens";
 
 /**
@@ -23,6 +24,7 @@ export function GoalScreen({
   readonly screenState?: ScreenContentState;
 }): JSX.Element {
   const { t } = useTranslation();
+  const screenData = useScreenData();
   if (screenState === "loading" || screenState === "offline") {
     return <ScreenState kind={screenState} />;
   }
@@ -50,48 +52,47 @@ export function GoalScreen({
       />
     );
   }
+  const data = screenData.getGoalData();
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{t("goal.title")}</Text>
-      <Text style={styles.subtitle}>{t("goal.subtitle")}</Text>
+      <Text style={styles.title}>{data.title}</Text>
+      <Text style={styles.subtitle}>{data.subtitle}</Text>
 
       <Card style={styles.summary}>
         <Text style={styles.savedLabel}>{t("goal.savedSoFar")}</Text>
-        <Text style={styles.savedAmount}>{t("goal.savedAmount")}</Text>
+        <Text style={styles.savedAmount}>{data.savedAmountText}</Text>
         <View style={styles.progressTrack}>
-          <View style={styles.progressFill} />
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width:
+                  // Percent is a bounded 0-100 number; RN DimensionValue accepts `${number}%`.
+                  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                  `${data.progressPercent}%`,
+              },
+            ]}
+          />
         </View>
         <Text style={styles.remaining}>
           {t("goal.remaining", {
-            remaining: t("goal.remainingAmount"),
-            total: t("goal.totalAmount"),
+            remaining: data.remainingAmountText,
+            total: data.totalAmountText,
           })}
         </Text>
       </Card>
 
-      <Stage
-        done
-        name={t("goal.stage1")}
-        detail={t("goal.stage1Amount")}
-        meta={t("goal.stage1Date")}
-        badge={t("goal.stage1Badge")}
-      />
-      <Stage
-        name={`2 ${t("goal.stage2")}`}
-        detail={t("goal.ofStage", {
-          done: t("goal.stage2Done"),
-          total: t("goal.stage2Total"),
-        })}
-        meta={t("goal.stage2Note")}
-        badge={t("goal.stage2Badge")}
-      />
-      <Stage
-        upcoming
-        name={`3 ${t("goal.stage3")}`}
-        detail={t("goal.stage3Amount")}
-        meta={t("goal.stage3Note")}
-      />
-      <Stage upcoming name={`4 ${t("goal.stage4")}`} detail={t("goal.stage4Amount")} />
+      {data.stages.map((stage, index) => (
+        <Stage
+          key={`${stage.name}-${String(index)}`}
+          done={stage.done}
+          upcoming={stage.upcoming}
+          name={stage.name}
+          detail={stage.detail}
+          {...(stage.meta !== undefined ? { meta: stage.meta } : {})}
+          {...(stage.badge !== undefined ? { badge: stage.badge } : {})}
+        />
+      ))}
     </ScrollView>
   );
 }
@@ -178,7 +179,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: {
-    width: "56%",
     height: "100%",
     backgroundColor: tokens.color.tierra,
     borderRadius: tokens.radius.full,

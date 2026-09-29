@@ -1,4 +1,46 @@
 {
+  "apiErrors": {
+    "internal_error": {
+      "title": "Algo no funcionó de nuestro lado.",
+      "body": "Intenta de nuevo en unos minutos. Si sigue pasando, pregúntale al asistente."
+    },
+    "invalid_request": {
+      "title": "Algo en la información no está bien.",
+      "body": "Revisa lo que ingresaste e intenta de nuevo."
+    },
+    "bad_request": {
+      "title": "No pudimos entender esa solicitud.",
+      "body": "Intenta de nuevo. Si sigue pasando, pregúntale al asistente."
+    },
+    "unauthorized": {
+      "title": "Tu sesión terminó.",
+      "body": "Inicia sesión de nuevo para continuar."
+    },
+    "forbidden": {
+      "title": "No tienes permiso para hacer eso.",
+      "body": "Si esto no te parece correcto, pregúntale al asistente."
+    },
+    "not_found": {
+      "title": "No encontramos lo que buscabas.",
+      "body": "Pudo haberse movido o eliminado. Regresa e intenta de nuevo."
+    },
+    "method_not_allowed": {
+      "title": "Esa acción no está disponible aquí.",
+      "body": "Regresa e intenta con otra opción."
+    },
+    "conflict": {
+      "title": "Parece que esto ya se hizo.",
+      "body": "Revisa tu historial antes de intentarlo de nuevo."
+    },
+    "rate_limited": {
+      "title": "Demasiados intentos en poco tiempo.",
+      "body": "Espera un minuto e intenta de nuevo."
+    },
+    "unavailable": {
+      "title": "Estamos un poco ocupados ahora mismo.",
+      "body": "No se perdió nada — intenta de nuevo en un momento."
+    }
+  },
   "app": {
     "getStarted": "Comenzar",
     "name": "Raíces"
@@ -6,13 +48,7 @@
   "approval": {
     "approve": "Aprobar {{amount}}",
     "decline": "Ahorita no",
-    "planMatch": "✓ Esto está dentro de tu plan",
     "planMatchDetail": "{{available}} disponibles en {{category}}",
-    "purpose": "“Para el mercado de la semana y leche para los niños”",
-    "relationship": "Tu esposa",
-    "recipientName": "María",
-    "category": "Comida",
-    "amount": "$95.00",
     "states": {
       "emptyBody": "No hay nada esperando tu respuesta.",
       "emptyTitle": "Todo al día.",
@@ -20,22 +56,10 @@
     }
   },
   "assistant": {
-    "aiAnswer1": "No cae en ninguna categoría de tu plan y el lugar no lo reconocemos. Nadie ha dicho que esté mal — solo falta confirmarlo.",
-    "aiRefusal": "Ese dato no lo tengo aquí. El tipo de cambio te lo muestra la pantalla de envío, antes de que confirmes nada.",
-    "greeting": "Buenos días, {{name}}. ¿Qué quieres saber?",
     "inputPlaceholder": "Escribe tu pregunta…",
     "languageToggle": "Español / English",
-    "refCategory": "❓ Sin categoría",
-    "refLink": "Ver el pago →",
-    "refTime": "Hace 5 días",
     "scope": "Te explico lo que pasa con tu dinero. Moverlo siempre lo decides tú.",
-    "suggestion1": "¿Cuánto me queda para comida?",
-    "suggestion2": "¿Cómo cambio mi plan?",
-    "suggestion3": "¿Qué pasa si digo que no?",
     "title": "Asistente",
-    "userQuestion1": "¿Por qué el pago de $120 salió para revisar?",
-    "userQuestion2": "¿Y cuánto le llega a María en quetzales?",
-    "refAmount": "$120.00",
     "states": {
       "emptyBody": "Pregunta lo que quieras — te explico lo que pasa con tu dinero.",
       "emptyTitle": "Todavía no hay conversación.",
@@ -43,28 +67,8 @@
     }
   },
   "goal": {
-    "ofStage": "{{done}} de {{total}}",
     "remaining": "Faltan {{remaining}} para los {{total}}",
     "savedSoFar": "Ahorrado hasta hoy",
-    "stage1": "Terreno comprado",
-    "stage1Badge": "Verificado",
-    "stage1Date": "12 de marzo",
-    "stage2": "Cimientos y bloques",
-    "stage2Badge": "En curso",
-    "stage2Note": "foto de María el lunes",
-    "stage3": "Paredes y techo",
-    "stage3Note": "cuando termine la etapa 2",
-    "stage4": "Acabados",
-    "subtitle": "Empezaste en marzo de 2025",
-    "title": "Casa en Chimaltenango",
-    "savedAmount": "$8,400",
-    "remainingAmount": "$6,600",
-    "totalAmount": "$15,000",
-    "stage1Amount": "$4,000",
-    "stage2Done": "$4,400",
-    "stage2Total": "$5,000",
-    "stage3Amount": "$3,500",
-    "stage4Amount": "$2,500",
     "states": {
       "emptyAction": "Crear mi meta",
       "emptyBody": "Ponle nombre a lo que estás construyendo.",
@@ -74,8 +78,7 @@
   },
   "goalCard": {
     "percent": "{{percent}}%",
-    "progress": "{{saved}} de {{goal}}",
-    "stage": "Etapa {{current}} de {{total}}"
+    "progress": "{{saved}} de {{goal}}"
   },
   "history": {
     "filters": {
@@ -84,24 +87,7 @@
       "flagged": "Para revisar",
       "pending": "Pendientes"
     },
-    "groups": {
-      "thisWeek": "Esta semana",
-      "twoWeeksAgo": "Hace 2 semanas",
-      "yesterday": "Ayer"
-    },
     "title": "Historial",
-    "emergencyCategory": "Emergencia",
-    "emergencyPurpose": "Medicamento para mamá",
-    "emergencyAmount": "$85.00",
-    "declinedCategory": "Negocio",
-    "declinedPurpose": "Inversión en negocio",
-    "declinedAmount": "$200.00",
-    "recentFoodCategory": "Comida",
-    "recentFoodPurpose": "Para el mercado de la semana",
-    "recentFoodAmount": "$95.00",
-    "recentHousingCategory": "Vivienda",
-    "recentHousingPurpose": "Renta de marzo",
-    "recentHousingAmount": "$400.00",
     "states": {
       "emptyAction": "Enviar ahora",
       "emptyBody": "Todo queda guardado.",
@@ -110,23 +96,9 @@
     }
   },
   "home": {
-    "balanceHere": "Aquí (EE.UU.)",
-    "balanceHereSub": "disponible para enviar",
-    "balanceThere": "Allá (Guatemala)",
-    "balanceThereSub": "enviado este mes",
-    "date": "Miércoles, 26 de agosto",
     "greeting": "Buenos días, {{name}}",
     "pendingPill": "{{count}} pedidos esperando tu respuesta",
     "recentActivity": "Actividad reciente",
-    "balanceHereAmount": "$1,240.00",
-    "balanceThereAmount": "$500.00",
-    "goalTitle": "Casa en Chimaltenango",
-    "recent1Category": "Vivienda",
-    "recent1Purpose": "Renta de marzo",
-    "recent1Amount": "$400.00",
-    "recent2Category": "Sin categoría",
-    "recent2Purpose": "Pago sin categoría",
-    "recent2Amount": "$120.00",
     "states": {
       "emptyAction": "Enviar ahora",
       "emptyBody": "Cuando lo hagas, lo verás aquí.",

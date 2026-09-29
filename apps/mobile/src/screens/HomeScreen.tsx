@@ -6,11 +6,15 @@ import "../../src/i18n";
 import { Card } from "../components/Card";
 import { ScreenState, type ScreenContentState } from "../components/ScreenState";
 import { TransactionCard } from "../components/TransactionCard";
+import { useScreenData } from "../data/ScreenDataContext";
 import { tokens } from "../theme/tokens";
 
 /**
  * 01 · Inicio — static shell. Copy sheet `claude_raices-ux-mvp-v0-copy-sheet.md`.
- * No backend calls; amounts are static copy strings, never computed.
+ *
+ * Data comes from the ScreenDataProvider (K2.24) via `useScreenData()` —
+ * never from i18n. Amounts arrive as preformatted opaque strings and pass
+ * through verbatim (issue #12).
  *
  * `screenState` renders the loading / empty / error / offline shells (K2.21).
  * TODO(copy): home.states.* are invented — the copy sheet and the DS specify
@@ -22,6 +26,7 @@ export function HomeScreen({
   readonly screenState?: ScreenContentState;
 }): JSX.Element {
   const { t } = useTranslation();
+  const screenData = useScreenData();
   if (screenState === "loading" || screenState === "offline") {
     return <ScreenState kind={screenState} />;
   }
@@ -49,69 +54,73 @@ export function HomeScreen({
       />
     );
   }
+  const data = screenData.getHomeData();
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.greeting}>{t("home.greeting", { name: "Carlos" })}</Text>
-      <Text style={styles.date}>{t("home.date")}</Text>
+      <Text style={styles.greeting}>{t("home.greeting", { name: data.greetingName })}</Text>
+      <Text style={styles.date}>{data.dateText}</Text>
 
       <View style={styles.balanceRow}>
-        <Card style={styles.balanceCard} accessibilityLabel={t("home.balanceHere")}>
-          <Text style={styles.balanceLabel}>{t("home.balanceHere")}</Text>
-          <Text style={styles.balanceAmount}>{t("home.balanceHereAmount")}</Text>
-          <Text style={styles.balanceSub}>{t("home.balanceHereSub")}</Text>
-        </Card>
-        <Card style={styles.balanceCard} accessibilityLabel={t("home.balanceThere")}>
-          <Text style={styles.balanceLabel}>{t("home.balanceThere")}</Text>
-          <Text style={styles.balanceAmount}>{t("home.balanceThereAmount")}</Text>
-          <Text style={styles.balanceSub}>{t("home.balanceThereSub")}</Text>
-        </Card>
+        {data.balances.map((balance) => (
+          <Card key={balance.label} style={styles.balanceCard} accessibilityLabel={balance.label}>
+            <Text style={styles.balanceLabel}>{balance.label}</Text>
+            <Text style={styles.balanceAmount}>{balance.amountText}</Text>
+            <Text style={styles.balanceSub}>{balance.sub}</Text>
+          </Card>
+        ))}
       </View>
 
       <View style={styles.pendingPill}>
-        <Text style={styles.pendingPillText}>{t("home.pendingPill", { count: 2 })}</Text>
+        <Text style={styles.pendingPillText}>
+          {t("home.pendingPill", { count: data.pendingCount })}
+        </Text>
       </View>
 
-      <Card accessibilityLabel={t("goalCard.stage", { current: 2, total: 4 })}>
-        <Text style={styles.goalTitle}>{t("home.goalTitle")}</Text>
-        <Text style={styles.goalStage}>{t("goalCard.stage", { current: 2, total: 4 })}</Text>
+      <Card accessibilityLabel={data.goalCard.title}>
+        <Text style={styles.goalTitle}>{data.goalCard.title}</Text>
+        <Text style={styles.goalStage}>{data.goalCard.stageText}</Text>
         <View style={styles.progressTrack}>
-          <View style={styles.progressFill} />
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width:
+                  // Percent is a bounded 0-100 number; RN DimensionValue accepts `${number}%`.
+                  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                  `${data.goalCard.percent}%`,
+              },
+            ]}
+          />
         </View>
         <View style={styles.goalMeta}>
           <Text style={styles.goalProgress}>
             {t("goalCard.progress", {
-              saved: t("goal.savedAmount"),
-              goal: t("goal.totalAmount"),
+              saved: data.goalCard.savedAmountText,
+              goal: data.goalCard.totalAmountText,
             })}
           </Text>
-          <Text style={styles.goalPercent}>{t("goalCard.percent", { percent: 56 })}</Text>
+          <Text style={styles.goalPercent}>
+            {t("goalCard.percent", { percent: data.goalCard.percent })}
+          </Text>
         </View>
       </Card>
 
       <Text style={styles.section}>{t("home.recentActivity")}</Text>
-      {/*
-        TODO(copy): the recent-activity items below are not in the copy sheet
-        (claude_raices-ux-mvp-v0-copy-sheet.md). They are static placeholders
-        for the visual shell; real items come from the ledger later.
-      */}
-      <TransactionCard
-        category="housing"
-        categoryLabel={t("home.recent1Category")}
-        status="approved"
-        amountText={t("home.recent1Amount")}
-        purpose={t("home.recent1Purpose")}
-        timestamp={t("history.groups.yesterday")}
-      />
-      <View style={styles.cardGap} />
-      <TransactionCard
-        category="unrecognized"
-        categoryLabel={t("home.recent2Category")}
-        status="flagged"
-        amountText={t("home.recent2Amount")}
-        purpose={t("home.recent2Purpose")}
-        timestamp={t("history.groups.yesterday")}
-        tier="unrecognized"
-      />
+      {data.recentActivity.map((item, index) => (
+        <View key={`${item.category}-${String(index)}`}>
+          {index > 0 ? <View style={styles.cardGap} /> : null}
+          <TransactionCard
+            category={item.category}
+            categoryLabel={item.categoryLabel}
+            status={item.status}
+            amountText={item.amountText}
+            purpose={item.purpose}
+            timestamp={item.timestamp}
+            {...(item.tier !== undefined ? { tier: item.tier } : {})}
+            {...(item.stageText !== undefined ? { stageText: item.stageText } : {})}
+          />
+        </View>
+      ))}
     </ScrollView>
   );
 }
@@ -209,7 +218,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: {
-    width: "56%",
     height: "100%",
     backgroundColor: tokens.color.tierra,
     borderRadius: tokens.radius.full,

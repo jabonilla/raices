@@ -1,5 +1,9 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { cleanup, render, screen, type RenderResult } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+
+import { fixtureProvider } from "../src/data/fixtureProvider";
+import { ScreenData } from "../src/data/ScreenDataContext";
 
 import i18n from "../src/i18n";
 import { ApprovalScreen } from "../src/screens/ApprovalScreen";
@@ -9,6 +13,11 @@ import { HistoryScreen } from "../src/screens/HistoryScreen";
 import { HomeScreen } from "../src/screens/HomeScreen";
 
 afterEach(cleanup);
+
+/** Screens read data through the ScreenDataProvider interface (K2.24). */
+function renderWithData(element: ReactElement): RenderResult {
+  return render(<ScreenData provider={fixtureProvider}>{element}</ScreenData>);
+}
 
 const screens = {
   home: HomeScreen,
@@ -45,13 +54,13 @@ describe.each(Object.keys(screens) as (keyof typeof screens)[])("%s screen state
   const Screen = screens[name];
 
   it("renders the loading state", () => {
-    render(<Screen screenState="loading" />);
+    renderWithData(<Screen screenState="loading" />);
     expect(screen.getByText("Cargando…")).toBeTruthy();
     expect(screen.getByLabelText("Cargando…")).toBeTruthy();
   });
 
   it("renders the offline state explicitly", () => {
-    render(<Screen screenState="offline" />);
+    renderWithData(<Screen screenState="offline" />);
     // Offline must be explicit: never stale data presented as live.
     expect(screen.getByText("Sin conexión")).toBeTruthy();
     expect(
@@ -63,7 +72,7 @@ describe.each(Object.keys(screens) as (keyof typeof screens)[])("%s screen state
   });
 
   it("renders the empty state", () => {
-    render(<Screen screenState="empty" />);
+    renderWithData(<Screen screenState="empty" />);
     expect(screen.getByText(emptyTitles[name])).toBeTruthy();
     if (screensWithEmptyAction.has(name)) {
       // DS §13.4: one primary action, never a secondary.
@@ -76,7 +85,7 @@ describe.each(Object.keys(screens) as (keyof typeof screens)[])("%s screen state
   });
 
   it("renders the error state without any raw error", () => {
-    render(<Screen screenState="error" />);
+    renderWithData(<Screen screenState="error" />);
     expect(screen.getByText(errorTitles[name])).toBeTruthy();
     // What happened + what to do next, in the user's language (DS §13.1).
     expect(
@@ -94,7 +103,7 @@ describe.each(Object.keys(screens) as (keyof typeof screens)[])("%s screen state
   });
 
   it("defaults to the happy-path content", () => {
-    render(<Screen />);
+    renderWithData(<Screen />);
     expect(screen.queryByText("Sin conexión")).toBeNull();
     expect(screen.queryByText("Cargando…")).toBeNull();
   });
@@ -104,7 +113,7 @@ describe("screen states in English", () => {
   it("resolves the shared offline copy through i18n", async () => {
     await i18n.changeLanguage("en-US");
     try {
-      render(<HistoryScreen screenState="offline" />);
+      renderWithData(<HistoryScreen screenState="offline" />);
       expect(screen.getByText("You're offline")).toBeTruthy();
     } finally {
       await i18n.changeLanguage("es-US");

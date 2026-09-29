@@ -9,17 +9,27 @@ import { SerializationRetryExhausted } from "./db/serializable.js";
  * framework 4xx errors keep their own messages; everything else becomes a
  * generic 500. The full error is logged server-side instead.
  */
-export type ApiErrorCode =
-  | "internal_error"
-  | "invalid_request"
-  | "bad_request"
-  | "unauthorized"
-  | "forbidden"
-  | "not_found"
-  | "method_not_allowed"
-  | "conflict"
-  | "rate_limited"
-  | "unavailable";
+/**
+ * Runtime list of every code in the ApiErrorCode union. The mobile error
+ * catalog test (apps/mobile/test/error-catalog.test.ts) imports this and
+ * asserts every code has user-facing copy in both locales: add a code here
+ * without copy and CI goes red. The union is derived from this list so the
+ * two can never drift apart.
+ */
+export const API_ERROR_CODES = [
+  "internal_error",
+  "invalid_request",
+  "bad_request",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "method_not_allowed",
+  "conflict",
+  "rate_limited",
+  "unavailable",
+] as const;
+
+export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
 export interface ApiErrorBody {
   readonly error: {
