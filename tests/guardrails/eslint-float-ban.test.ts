@@ -25,6 +25,8 @@ const MONEY_DIR = join(REPO_ROOT, "packages/money/src");
 const LEDGER_DIR = join(REPO_ROOT, "apps/api/src/ledger");
 // Reconciliation compares money amounts too, so it is inside the ban.
 const RECON_DIR = join(REPO_ROOT, "apps/api/src/reconciliation");
+// P2.3: category caps are Money, so the plans path is a money path.
+const PLANS_DIR = join(REPO_ROOT, "apps/api/src/plans");
 // Path outside the float ban scope — the rule must NOT fire here.
 const OUTSIDE_DIR = join(REPO_ROOT, "apps/api/src");
 
@@ -76,6 +78,7 @@ describe("guardrail: float ban in money paths", () => {
     ["packages/money/src", MONEY_DIR],
     ["apps/api/src/ledger", LEDGER_DIR],
     ["apps/api/src/reconciliation", RECON_DIR],
+    ["apps/api/src/plans", PLANS_DIR],
   ] as const) {
     for (const [name, code] of Object.entries(FIXTURES)) {
       it(`reports an error for ${name} in ${dirName}`, async () => {

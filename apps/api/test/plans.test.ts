@@ -71,7 +71,16 @@ describe("creating a plan", () => {
     const plan = await createPlan(db, { relationshipId, createdBy: senderId });
 
     const version = await readVersion(db, plan.versionId);
-    expect(version.categories.map((c) => c.name).sort()).toEqual([...SYSTEM_CATEGORY_NAMES].sort());
+    // The literal five from the ticket, not [...SYSTEM_CATEGORY_NAMES]:
+    // comparing the seeded names against the constant that produced them is
+    // a tautology that passes however that constant is edited.
+    expect(version.categories.map((c) => c.name).sort()).toEqual([
+      "Business",
+      "Food",
+      "Housing",
+      "Other",
+      "Savings",
+    ]);
     expect(version.categories.every((c) => c.isSystem)).toBe(true);
   });
 
@@ -82,6 +91,10 @@ describe("creating a plan", () => {
     const plan = await createPlan(db, { relationshipId, createdBy: senderId });
     const version = await readVersion(db, plan.versionId);
     expect(version.categories.every((c) => c.monthlyCap === null)).toBe(true);
+  });
+
+  it("exports exactly the five system category names the ticket lists", () => {
+    expect([...SYSTEM_CATEGORY_NAMES]).toEqual(["Housing", "Food", "Business", "Savings", "Other"]);
   });
 });
 
@@ -135,6 +148,24 @@ describe("editing a plan", () => {
     expect((await readVersion(db, plan.versionId)).categories.map((c) => c.id).sort()).toEqual(
       [...originalIds].sort(),
     );
+  });
+
+  // is_system is what separates the five seeded categories from a sender's
+  // own. An edit that marked everything system would erase that distinction.
+  it("does not mark a sender's own categories as system", async () => {
+    const { relationshipId, senderId } = await aRelationship();
+    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const second = await editPlan(db, {
+      planId: plan.planId,
+      editedBy: senderId,
+      categories: [
+        { name: "Housing", icon: "home", monthlyCap: null },
+        { name: "Moto", icon: "bike", monthlyCap: money(15_000n, "GTQ") },
+      ],
+    });
+
+    const categories = (await readVersion(db, second.versionId)).categories;
+    expect(categories.map((c) => c.isSystem)).toEqual([false, false]);
   });
 
   it("records who made the edit", async () => {
@@ -286,6 +317,10 @@ describe("caps are Money", () => {
 
     const [read] = (await readVersion(db, edited.versionId)).categories;
     expect(read?.monthlyCap?.amount).toBe(huge);
-    expect(Number(read?.monthlyCap?.amount)).not.toBe(Number(huge - 1n));
+
+    // Why this has to be a bigint the whole way: as doubles, this cap and the
+    // one a minor unit below it are the same number. As bigints they are not.
+    expect(Number(huge)).toBe(Number(huge - 1n));
+    expect(read?.monthlyCap?.amount).not.toBe(huge - 1n);
   });
 });

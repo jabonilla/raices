@@ -59,6 +59,13 @@ function aPhone(): string {
   return `+5023${String(3_000_000 + phoneCounter).padStart(7, "0")}`;
 }
 
+/** The single row a fixture insert must have returned. */
+function only<T>(rows: readonly T[], what: string): T {
+  const row = rows[0];
+  if (row === undefined) throw new Error(`Expected ${what} to be returned`);
+  return row;
+}
+
 /** A relationship with a plan, one version, and one category. */
 async function fixture(): Promise<{
   planId: string;
@@ -75,30 +82,30 @@ async function fixture(): Promise<{
       `insert into app_user (phone, roles) values ($1, '{recipient}') returning id`,
       [aPhone()],
     );
-    const userId = a[0]!.id;
+    const userId = only(a, "a user").id;
     const { rows: rel } = await c.query<{ id: string }>(
       `insert into relationship (user_a_id, user_b_id, role_of_a, role_of_b)
        values ($1, $2, 'sender', 'recipient') returning id`,
-      [userId, b[0]!.id],
+      [userId, only(b, "a second user").id],
     );
     const { rows: plan } = await c.query<{ id: string }>(
       `insert into money_plan (relationship_id) values ($1) returning id`,
-      [rel[0]!.id],
+      [only(rel, "a relationship").id],
     );
     const { rows: version } = await c.query<{ id: string }>(
       `insert into plan_version (plan_id, version_number, created_by)
        values ($1, 1, $2) returning id`,
-      [plan[0]!.id, userId],
+      [only(plan, "a plan").id, userId],
     );
     const { rows: cat } = await c.query<{ id: string }>(
       `insert into category (plan_version_id, name, icon, monthly_cap_minor, monthly_cap_currency)
        values ($1, 'Housing', 'home', 50000, 'USD') returning id`,
-      [version[0]!.id],
+      [only(version, "a version").id],
     );
     return {
-      planId: plan[0]!.id,
-      versionId: version[0]!.id,
-      categoryId: cat[0]!.id,
+      planId: only(plan, "a plan").id,
+      versionId: only(version, "a version").id,
+      categoryId: only(cat, "a category").id,
       userId,
     };
   });
@@ -163,6 +170,28 @@ describe("plan_version and category are immutable", () => {
       });
     });
   }
+
+  // TRUNCATE on plan_version cannot be isolated behaviourally: it needs
+  // CASCADE, because category has a foreign key to it, and the cascade
+  // reaches category, whose own guard fires whether or not plan_version has
+  // one. The statement is refused either way, so no behavioural test can
+  // tell the two triggers apart. Asserting both exist is what makes removing
+  // either one visible.
+  it("has a TRUNCATE guard on both history tables", async () => {
+    const triggers = await withClient(async (c) => {
+      const { rows } = await c.query<{ tgname: string }>(
+        `select t.tgname
+           from pg_trigger t
+           join pg_class rel on rel.oid = t.tgrelid
+          where rel.relname in ('plan_version', 'category')
+            and not t.tgisinternal
+            and (t.tgtype & 32) <> 0
+          order by t.tgname`,
+      );
+      return rows.map((r) => r.tgname);
+    });
+    expect(triggers).toEqual(["category_no_truncate", "plan_version_no_truncate"]);
+  });
 
   // money_plan is deliberately mutable: current_version_id moves forward as
   // versions are added. That is the pointer, not the history.
