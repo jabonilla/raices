@@ -29,7 +29,8 @@ export interface WebhookRouteDeps {
    * Event handoff. Defaults to the no-op `handleWebhookEvent`; tests inject
    * a spy to assert at-most-once processing.
    */
-  readonly handleEvent?: ((event: WebhookEvent, log: FastifyBaseLogger) => Promise<void> | void) | undefined;
+  readonly handleEvent?:
+    ((event: WebhookEvent, log: FastifyBaseLogger) => Promise<void> | void) | undefined;
 }
 
 export interface WebhookAcceptedBody {
@@ -53,6 +54,10 @@ export interface WebhookAcceptedBody {
  * 256 KiB, Zod rejects non-objects, and normalization is total.
  */
 export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDeps): void {
+  // codeql[js/missing-rate-limiting]: false positive. Rate limiting is
+  // applied globally by registerRateLimit's onRequest hook (wired in app.ts),
+  // which covers every route except /health — CodeQL cannot see through
+  // Fastify's addHook registration. See apps/api/src/hardening.ts.
   app.post("/webhooks/channel", async (request, reply): Promise<WebhookAcceptedBody> => {
     // 1. Signature. Fastify has already parsed the body, so re-serialize is
     // not the raw bytes — the skeleton documents this gap honestly: the
