@@ -108,6 +108,32 @@ export default defineConfig({
         },
       },
       {
+        // K3's red-team regressions for the defects fixed in this branch
+        // (RED-1 #99, RED-2 #100). Their own runner in tests/redteam/ is
+        // standalone and says so; a regression test that CI never runs
+        // cannot stop the defect coming back, which is the only reason it
+        // exists.
+        //
+        // Scoped to exactly the two files whose findings are fixed here,
+        // not the whole directory. The rest of K3's suite reproduces
+        // findings nobody has fixed yet, and pulling those into the shared
+        // gate the moment #75 merges would turn CI red for everyone over
+        // work that was never assigned. Widen this list as each one is
+        // fixed.
+        resolve: { alias: { "@raices/money": moneySrc } },
+        test: {
+          name: "redteam",
+          root: ".",
+          environment: "node",
+          include: [
+            "tests/redteam/ledger-adversarial.test.ts",
+            "tests/redteam/relationship-race.test.ts",
+          ],
+          testTimeout: 180_000,
+          hookTimeout: 180_000,
+        },
+      },
+      {
         // Guardrail regression tests: verify that the ESLint float ban and
         // the TypeScript multiply-without-rounding error still fire. If a
         // dependency upgrade silently disarms them, these tests fail. (K2.8)
