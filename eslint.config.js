@@ -4,6 +4,32 @@ import tseslint from "typescript-eslint";
 
 import mobileA11y from "./eslint-plugins/mobile-a11y.js";
 
+/**
+ * Money paths never coerce through floats (CLAUDE.md rule 1). Shared so a
+ * config block that needs its own `no-restricted-syntax` entry can spread
+ * these in rather than silently replacing them: in flat config, the last
+ * matching block wins per rule, not per selector.
+ */
+const FLOAT_BAN_SELECTORS = [
+  {
+    selector: "CallExpression[callee.name='Number']",
+    message:
+      "Number() coerces to a float and loses precision past 2^53. Money is bigint minor units.",
+  },
+  {
+    selector: "NewExpression[callee.name='Number']",
+    message: "Number() coerces to a float. Money is bigint minor units.",
+  },
+  {
+    selector: "CallExpression[callee.name='parseFloat']",
+    message: "parseFloat produces a float. Parse money with fromMajorString instead.",
+  },
+  {
+    selector: "CallExpression[callee.object.name='Number'][callee.property.name='parseFloat']",
+    message: "Number.parseFloat produces a float. Parse money with fromMajorString instead.",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**"],
@@ -27,27 +53,75 @@ export default tseslint.config(
       "apps/api/src/ledger/**/*.ts",
       "apps/api/src/reconciliation/**/*.ts",
       "apps/api/src/plans/**/*.ts",
+      // P2.4: a request carries an amount and is compared against a cap.
+      "apps/api/src/requests/**/*.ts",
     ],
     rules: {
-      "no-restricted-syntax": [
+      "no-restricted-syntax": ["error", ...FLOAT_BAN_SELECTORS],
+    },
+  },
+  {
+    // P2.4: the tier classifier is pure. Its inputs are values a caller has
+    // already read, so it never reaches a database itself — that is what
+    // makes every tier exhaustively table-testable without one.
+    //
+    // Enforced rather than documented: a future change that reaches for a
+    // query builder fails to lint instead of quietly turning the classifier
+    // into something that needs a container to test. Type-only imports count,
+    // because importing the schema is the coupling this prevents.
+    files: ["apps/api/src/requests/tier/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
         "error",
         {
-          selector: "CallExpression[callee.name='Number']",
+          paths: [
+            {
+              name: "kysely",
+              message:
+                "The tier classifier is pure: it takes the plan version, the spend to date and " +
+                "any recurring rule as values. Read them in the caller (P2.4).",
+            },
+            { name: "pg", message: "The tier classifier takes values, never a connection (P2.4)." },
+            {
+              name: "pg-boss",
+              message: "The tier classifier takes values, never a job queue (P2.4).",
+            },
+            {
+              name: "postgres",
+              message: "The tier classifier takes values, never a connection (P2.4).",
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                "**/db",
+                "**/db/*",
+                "**/db/**",
+                "**/schema.js",
+                "**/schema",
+                "**/serializable.js",
+              ],
+              message:
+                "The tier classifier does not import the database schema or its helpers. Its " +
+                "input types live beside it in apps/api/src/requests/tier/ (P2.4).",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        ...FLOAT_BAN_SELECTORS,
+        {
+          selector: "ImportExpression",
           message:
-            "Number() coerces to a float and loses precision past 2^53. Money is bigint minor units.",
+            "A dynamic import would route around the tier module's import ban. The classifier " +
+            "is pure and loads nothing at runtime (P2.4).",
         },
         {
-          selector: "NewExpression[callee.name='Number']",
-          message: "Number() coerces to a float. Money is bigint minor units.",
-        },
-        {
-          selector: "CallExpression[callee.name='parseFloat']",
-          message: "parseFloat produces a float. Parse money with fromMajorString instead.",
-        },
-        {
-          selector:
-            "CallExpression[callee.object.name='Number'][callee.property.name='parseFloat']",
-          message: "Number.parseFloat produces a float. Parse money with fromMajorString instead.",
+          selector: "CallExpression[callee.name='require']",
+          message:
+            "require() would route around the tier module's import ban. The classifier is pure " +
+            "and loads nothing at runtime (P2.4).",
         },
       ],
     },

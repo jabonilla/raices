@@ -27,6 +27,10 @@ const LEDGER_DIR = join(REPO_ROOT, "apps/api/src/ledger");
 const RECON_DIR = join(REPO_ROOT, "apps/api/src/reconciliation");
 // P2.3: category caps are Money, so the plans path is a money path.
 const PLANS_DIR = join(REPO_ROOT, "apps/api/src/plans");
+// P2.4: a request carries an amount and is compared against a cap.
+const REQUESTS_DIR = join(REPO_ROOT, "apps/api/src/requests");
+// The pure tier classifier compares those amounts; it is inside the ban too.
+const TIER_DIR = join(REPO_ROOT, "apps/api/src/requests/tier");
 // Path outside the float ban scope — the rule must NOT fire here.
 const OUTSIDE_DIR = join(REPO_ROOT, "apps/api/src");
 
@@ -79,6 +83,8 @@ describe("guardrail: float ban in money paths", () => {
     ["apps/api/src/ledger", LEDGER_DIR],
     ["apps/api/src/reconciliation", RECON_DIR],
     ["apps/api/src/plans", PLANS_DIR],
+    ["apps/api/src/requests", REQUESTS_DIR],
+    ["apps/api/src/requests/tier", TIER_DIR],
   ] as const) {
     for (const [name, code] of Object.entries(FIXTURES)) {
       it(`reports an error for ${name} in ${dirName}`, async () => {
