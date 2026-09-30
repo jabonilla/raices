@@ -1,6 +1,7 @@
 import type { ColumnType } from "kysely";
 
 import type { AuditDatabase } from "../audit/schema.js";
+import type { PlanDatabase } from "../plans/schema.js";
 import type { RelationshipDatabase } from "../relationships/schema.js";
 
 /**
@@ -56,7 +57,7 @@ export interface LedgerEntryTable {
   created_at: DefaultedImmutable<Date>;
 }
 
-export interface Database extends AuditDatabase, RelationshipDatabase {
+export interface Database extends AuditDatabase, RelationshipDatabase, PlanDatabase {
   ledger_account: LedgerAccountTable;
   ledger_transaction: LedgerTransactionTable;
   ledger_entry: LedgerEntryTable;

@@ -26,6 +26,7 @@ export default tseslint.config(
       "packages/money/**/*.ts",
       "apps/api/src/ledger/**/*.ts",
       "apps/api/src/reconciliation/**/*.ts",
+      "apps/api/src/plans/**/*.ts",
     ],
     rules: {
       "no-restricted-syntax": [
