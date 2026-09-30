@@ -80,7 +80,7 @@ async function main(): Promise<void> {
     currency: "USD",
     purpose: "groceries",
     sender: "carlos",
-  })) as Record<string, unknown>;
+  })) as { id: string };
   show("POST /transfers", request);
 
   // Step 3: Approval gate
@@ -157,8 +157,9 @@ async function main(): Promise<void> {
   );
 }
 
-main().catch((err) => {
-  console.error("\nDemo failed:", err.message);
+main().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error("\nDemo failed:", message);
   console.error("\nMake sure 'pnpm demo' is running first (API on localhost:3000).");
   process.exit(1);
 });
