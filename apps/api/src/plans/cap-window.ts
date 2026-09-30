@@ -64,9 +64,11 @@ export async function monthToDateSpend<DB extends PlanDatabase>(
   db: Kysely<DB>,
   input: MonthToDateSpendInput,
 ): Promise<Money> {
+  // A null category matches no category row, so the window CTE is empty and
+  // the sum is null: the query below already answers zero. There is no early
+  // return for it, because a branch whose removal changes nothing is a branch
+  // no test can hold in place.
   const zero = money(0n, input.currency);
-  if (input.categoryId === null) return zero;
-
   const now = input.now ?? new Date();
 
   // The window is [start of this month, start of next), both computed in the

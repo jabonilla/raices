@@ -331,7 +331,15 @@ describe("intent and settlement move independently", () => {
       advanceSettlement(db, { transactionId: id, to: "reversed", actor: { kind: "system" } }),
     ).rejects.toThrow(UndeclaredTransitionError);
 
-    for (const to of ["instructed", "in_flight", "settled", "reversed"] as const) {
+    // Nor part-way through: there is nothing to reverse until it lands.
+    for (const to of ["instructed", "in_flight"] as const) {
+      await advanceSettlement(db, { transactionId: id, to, actor: { kind: "system" } });
+      await expect(
+        advanceSettlement(db, { transactionId: id, to: "reversed", actor: { kind: "system" } }),
+      ).rejects.toThrow(UndeclaredTransitionError);
+    }
+
+    for (const to of ["settled", "reversed"] as const) {
       await advanceSettlement(db, { transactionId: id, to, actor: { kind: "system" } });
     }
     expect((await readTransaction(db, id)).settlementState).toBe("reversed");

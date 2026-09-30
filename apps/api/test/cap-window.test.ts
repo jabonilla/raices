@@ -47,6 +47,11 @@ const usd = (minor: bigint): Money => money(minor, "USD");
 const LATE_ON_THE_31ST = new Date("2026-02-01T05:30:00Z");
 /** Mid-January, which is unambiguously January in both zones. */
 const MID_JANUARY = new Date("2026-01-15T12:00:00Z");
+/**
+ * An hour and a half later: past midnight on 1 February in Guatemala too,
+ * so it is outside the window even under the later of the two clocks.
+ */
+const EARLY_ON_THE_1ST = new Date("2026-02-01T07:00:00Z");
 
 interface Fixture {
   readonly relationshipId: string;
@@ -54,6 +59,7 @@ interface Fixture {
   readonly senderId: string;
   readonly recipientId: string;
   readonly categoryId: string;
+  readonly otherCategoryId: string;
 }
 
 async function aPlanIn(capTimezone: string, cap: Money): Promise<Fixture> {
@@ -70,12 +76,17 @@ async function aPlanIn(capTimezone: string, cap: Money): Promise<Fixture> {
     planId: plan.planId,
     editedBy: sender.id,
     capTimezone,
-    categories: [{ name: "Housing", icon: "home", monthlyCap: cap, isSystem: true }],
+    categories: [
+      { name: "Housing", icon: "home", monthlyCap: cap, isSystem: true },
+      { name: "Food", icon: "food", monthlyCap: cap, isSystem: true },
+    ],
   });
-  const housing = (await readVersion(db, edited.versionId)).categories.find(
-    (c) => c.name === "Housing",
-  );
-  if (housing === undefined) throw new Error("expected a Housing category");
+  const categories = (await readVersion(db, edited.versionId)).categories;
+  const housing = categories.find((c) => c.name === "Housing");
+  const food = categories.find((c) => c.name === "Food");
+  if (housing === undefined || food === undefined) {
+    throw new Error("expected Housing and Food categories");
+  }
 
   return {
     relationshipId: rel.id,
@@ -83,17 +94,23 @@ async function aPlanIn(capTimezone: string, cap: Money): Promise<Fixture> {
     senderId: sender.id,
     recipientId: recipient.id,
     categoryId: housing.id,
+    otherCategoryId: food.id,
   };
 }
 
 /** Record an already-approved request at a given instant, for spend to date. */
-async function approvedSpend(f: Fixture, amount: Money, at: Date): Promise<void> {
+async function approvedSpend(
+  f: Fixture,
+  amount: Money,
+  at: Date,
+  categoryId: string = f.categoryId,
+): Promise<void> {
   await sql`
     insert into request (relationship_id, requested_by, amount_minor, amount_currency,
                          category_id, description, tier, channel_of_origin,
                          status, resolved_by, resolved_at, created_at)
     values (${f.relationshipId}, ${f.recipientId}, ${amount.amount}, ${amount.currency},
-            ${f.categoryId}, 'Renta', 'recurring', 'whatsapp',
+            ${categoryId}, 'Renta', 'recurring', 'whatsapp',
             'approved', ${f.senderId}, ${at}, ${at})
   `.execute(db);
 }
@@ -179,6 +196,53 @@ describe("the cap window follows the plan version's timezone", () => {
     expect(spend).toEqual(usd(0n));
   });
 
+  it("excludes spend that falls after the window closes", async () => {
+    // Without an upper bound the window would run to the end of time, and a
+    // request made in February would count against January's cap.
+    const f = await aPlanIn("America/Guatemala", usd(100_00n));
+    await approvedSpend(f, usd(40_00n), MID_JANUARY);
+    await approvedSpend(f, usd(30_00n), EARLY_ON_THE_1ST);
+
+    const spend = await monthToDateSpend(db, {
+      relationshipId: f.relationshipId,
+      categoryId: f.categoryId,
+      currency: "USD",
+      now: LATE_ON_THE_31ST,
+    });
+    expect(spend).toEqual(usd(40_00n));
+  });
+
+  it("counts only the category asked about", async () => {
+    // Caps are per category. Summing across them would let the grocery
+    // budget push the rent over its own cap.
+    const f = await aPlanIn("America/Guatemala", usd(100_00n));
+    await approvedSpend(f, usd(40_00n), MID_JANUARY);
+    await approvedSpend(f, usd(55_00n), MID_JANUARY, f.otherCategoryId);
+
+    const spend = await monthToDateSpend(db, {
+      relationshipId: f.relationshipId,
+      categoryId: f.categoryId,
+      currency: "USD",
+      now: LATE_ON_THE_31ST,
+    });
+    expect(spend).toEqual(usd(40_00n));
+  });
+
+  it("reports zero for a request that names no category", async () => {
+    const f = await aPlanIn("America/Guatemala", usd(100_00n));
+    await approvedSpend(f, usd(40_00n), MID_JANUARY);
+
+    const spend = await monthToDateSpend(db, {
+      relationshipId: f.relationshipId,
+      categoryId: null,
+      currency: "USD",
+      now: LATE_ON_THE_31ST,
+    });
+    // No category means no cap to measure against, so there is nothing to
+    // count — and certainly not another category's spend.
+    expect(spend).toEqual(usd(0n));
+  });
+
   it("counts only approved requests", async () => {
     const f = await aPlanIn("America/Guatemala", usd(100_00n));
     await approvedSpend(f, usd(40_00n), MID_JANUARY);
@@ -236,6 +300,20 @@ describe("the timezone lives on the plan version", () => {
     await expect(
       sql`update plan_version set cap_timezone = 'UTC' where id = ${versionId}`.execute(db),
     ).rejects.toThrow();
+  });
+
+  it("has no default, so a version cannot be written without stating one", async () => {
+    // The point of #92 is that the zone is never inherited from somewhere
+    // else. A column default would be exactly that: a writer that forgets
+    // would silently get Guatemala and nobody would know the question had
+    // been skipped.
+    const f = await aPlanIn("America/Guatemala", usd(100_00n));
+    await expect(
+      sql`
+        insert into plan_version (plan_id, version_number, created_by)
+        values (${f.planId}, 99, ${f.senderId})
+      `.execute(db),
+    ).rejects.toMatchObject({ code: "23502" });
   });
 
   it("refuses a timezone Postgres does not know", async () => {

@@ -266,6 +266,15 @@ export async function approveAndRecord(
       // Lost the race for the idempotency key to a caller who has since
       // committed. A fresh transaction sees their row and replays; retrying
       // inside this one cannot, because its snapshot predates their commit.
+      //
+      // Measured note, matching the one on ConcurrentKeyInsert in
+      // ledger/post.ts: this branch does not fire today. Under SERIALIZABLE
+      // the racing callers conflict on the request row and raise 40001
+      // first, which withSerializableTx retries, so the fresh snapshot finds
+      // the winner and the replay check at the top returns. Instrumenting
+      // the 20-parallel test threw this zero times. It is kept as a guard
+      // for the case where that stops being true, not because it is doing
+      // work — a mutation that disables it is not caught by any test.
       if (isPostKeyRace(error) && attempt < MAX_COLLISION_ATTEMPTS) continue;
       throw error;
     }
@@ -337,15 +346,16 @@ export interface CancelIntentInput {
  *
  * Refused once settlement has left `not_started`: at that point money has
  * been instructed, and the honest record of that is a reversal, not a
- * cancellation that pretends the instruction never happened. The database
- * refuses it too (0007, TX001), so the rule holds for any writer.
+ * cancellation that pretends the instruction never happened.
+ *
+ * The refusal is the database's (0007, TX001), so it holds for any writer
+ * rather than only for callers of this function. There was a matching check
+ * here as well until mutation testing showed the pair masking each other —
+ * removing either one alone left every test green, because the other still
+ * produced the same error. One layer, in the place that covers everyone.
  */
 export async function cancelIntent(db: Kysely<Database>, input: CancelIntentInput): Promise<void> {
-  const { intent, settlement } = await currentStates(db, input.transactionId);
-
-  if (settlement !== "not_started" && intent === "committed") {
-    throw new CancelAfterSettlementError(input.transactionId);
-  }
+  const { intent } = await currentStates(db, input.transactionId);
 
   try {
     await transition(
