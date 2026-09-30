@@ -32,6 +32,15 @@ export interface PlanVersionTable {
   plan_id: Immutable<string>;
   version_number: Immutable<number>;
   created_by: Immutable<string>;
+  /**
+   * The IANA zone the monthly cap window is measured in (issue #92).
+   *
+   * On the version, not the plan, so changing it appends a version like any
+   * other plan change and cannot reclassify requests already made. Never
+   * inferred from a device: a recipient on a plane must not move the
+   * boundary.
+   */
+  cap_timezone: Immutable<string>;
   created_at: DefaultedImmutable<Date>;
 }
 

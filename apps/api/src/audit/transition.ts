@@ -104,29 +104,13 @@ export interface TransitionInput<S extends string> {
 }
 
 /**
- * Move an entity from one state to another, writing the state change and its
- * audit row in the same transaction.
+ * Check the move and the action shape, before anything is written.
  *
- * An undeclared transition throws before the transaction opens, so nothing is
- * written. A declared one applies `applyStateChange` first and inserts the
- * audit row second, both inside one SERIALIZABLE transaction: if the audit
- * insert fails, the state change rolls back with it. Neither can commit alone.
- *
- * That makes the two atomic for callers of `transition()`. The database closes
- * the remaining gap: `audit_enforce_transitions()` in 0003_audit.sql refuses a
- * state change that reaches the table any other way.
- *
- * `applyStateChange` may run up to MAX_ATTEMPTS times, because the transaction
- * is retried on a serialization failure. It must therefore be replayable and
- * must not perform side effects outside the transaction it is handed.
+ * Split out so the two entry points below agree on what is legal: an
+ * undeclared transition is refused before a transaction is opened, and
+ * refused identically when one is already open.
  */
-export async function transition<DB extends AuditDatabase, S extends string, T>(
-  db: Kysely<DB>,
-  machine: StateMachine<S>,
-  input: TransitionInput<S>,
-  applyStateChange: (trx: Transaction<DB>) => Promise<T>,
-  options: WithSerializableTxOptions = {},
-): Promise<T> {
+function assertLegal<S extends string>(machine: StateMachine<S>, input: TransitionInput<S>): void {
   if (!isDeclared(machine, input.from, input.to)) {
     throw new UndeclaredTransitionError(
       machine.entityType,
@@ -142,37 +126,89 @@ export async function transition<DB extends AuditDatabase, S extends string, T>(
         `"${machine.entityType}.${input.to}". Audit rows carry no free text.`,
     );
   }
+}
+
+/**
+ * Apply a state change and write its audit row inside a transaction the
+ * caller already opened.
+ *
+ * This is the whole of `transition()` except for opening the transaction,
+ * and it exists so a caller can put a transition and other writes in one
+ * atomic unit. P2.5 needs exactly that: approving a request moves the
+ * request's status, inserts the transaction row and posts to the ledger, and
+ * all three commit together or none of them do. Calling `transition()` there
+ * would open a second, nested transaction and give up that guarantee.
+ *
+ * The caller owns the retry: a transaction handed in here is already running,
+ * so a serialization failure has to be replayed from wherever it was opened.
+ */
+export async function transitionWithin<DB extends AuditDatabase, S extends string, T>(
+  trx: Transaction<DB>,
+  machine: StateMachine<S>,
+  input: TransitionInput<S>,
+  applyStateChange: (trx: Transaction<DB>) => Promise<T>,
+): Promise<T> {
+  assertLegal(machine, input);
+
+  // The state change goes first so that a failing audit insert has something
+  // to roll back. Were the order reversed, the rollback test would pass
+  // without proving anything.
+  const result = await applyStateChange(trx);
+
+  // Kysely cannot narrow `insertInto("audit_log")` through the generic DB
+  // parameter, so the insert is typed against the slice it actually needs.
+  // DB extends AuditDatabase, so the table and its columns are the same.
+  const audit = trx as unknown as Transaction<AuditDatabase>;
+
+  await audit
+    .insertInto("audit_log")
+    .values({
+      actor_id: input.actor.id ?? null,
+      actor_kind: input.actor.kind,
+      action: input.action,
+      entity_type: machine.entityType,
+      entity_id: input.entityId,
+      channel: input.channel ?? null,
+      assurance_level: input.assuranceLevel ?? null,
+      before_state: JSON.stringify({ state: input.from }),
+      after_state: JSON.stringify({ state: input.to }),
+    })
+    .execute();
+
+  return result;
+}
+
+/**
+ * Move an entity from one state to another, writing the state change and its
+ * audit row in the same transaction.
+ *
+ * An undeclared transition throws before the transaction opens, so nothing is
+ * written. A declared one applies `applyStateChange` first and inserts the
+ * audit row second, both inside one SERIALIZABLE transaction: if the audit
+ * insert fails, the state change rolls back with it. Neither can commit alone.
+ *
+ * That makes the two atomic for callers of `transition()`. The database closes
+ * the remaining gap: `audit_enforce_transitions()` in 0003_audit.sql refuses a
+ * state change that reaches the table any other way.
+ *
+ * `applyStateChange` may run more than once, because the transaction is
+ * retried on a serialization failure. It must therefore be replayable and
+ * must not perform side effects outside the transaction it is handed.
+ */
+export async function transition<DB extends AuditDatabase, S extends string, T>(
+  db: Kysely<DB>,
+  machine: StateMachine<S>,
+  input: TransitionInput<S>,
+  applyStateChange: (trx: Transaction<DB>) => Promise<T>,
+  options: WithSerializableTxOptions = {},
+): Promise<T> {
+  // Checked before the transaction opens as well as inside it, so an
+  // undeclared move costs nothing and writes nothing.
+  assertLegal(machine, input);
 
   return withSerializableTx(
     db,
-    async (trx) => {
-      // The state change goes first so that a failing audit insert has
-      // something to roll back. Were the order reversed, the rollback test
-      // would pass without proving anything.
-      const result = await applyStateChange(trx);
-
-      // Kysely cannot narrow `insertInto("audit_log")` through the generic DB
-      // parameter, so the insert is typed against the slice it actually needs.
-      // DB extends AuditDatabase, so the table and its columns are the same.
-      const audit = trx as unknown as Transaction<AuditDatabase>;
-
-      await audit
-        .insertInto("audit_log")
-        .values({
-          actor_id: input.actor.id ?? null,
-          actor_kind: input.actor.kind,
-          action: input.action,
-          entity_type: machine.entityType,
-          entity_id: input.entityId,
-          channel: input.channel ?? null,
-          assurance_level: input.assuranceLevel ?? null,
-          before_state: JSON.stringify({ state: input.from }),
-          after_state: JSON.stringify({ state: input.to }),
-        })
-        .execute();
-
-      return result;
-    },
+    async (trx) => transitionWithin(trx, machine, input, applyStateChange),
     options,
   );
 }

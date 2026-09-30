@@ -14,6 +14,9 @@ import {
 import { findOrCreateUserByPhone, invite } from "../src/relationships/index.js";
 import { startTestPostgres, type TestPostgres } from "../../../tests/pg.js";
 
+/** Every plan version states its cap window timezone (issue #92). */
+const TEST_TZ = "America/Guatemala";
+
 /**
  * P2.3 behaviour, against real Postgres. Immutability and gapless numbering
  * are database properties; a mock would assert nothing about either.
@@ -59,7 +62,11 @@ afterAll(async () => {
 describe("creating a plan", () => {
   it("starts at version 1 and points the plan at it", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     const read = await readPlan(db, plan.planId);
     expect(read.currentVersionNumber).toBe(1);
@@ -68,7 +75,11 @@ describe("creating a plan", () => {
 
   it("seeds the five system categories", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     const version = await readVersion(db, plan.versionId);
     // The literal five from the ticket, not [...SYSTEM_CATEGORY_NAMES]:
@@ -88,7 +99,11 @@ describe("creating a plan", () => {
   // should not silently forbid all spending.
   it("gives the seeded categories no cap", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
     const version = await readVersion(db, plan.versionId);
     expect(version.categories.every((c) => c.monthlyCap === null)).toBe(true);
   });
@@ -101,9 +116,14 @@ describe("creating a plan", () => {
 describe("editing a plan", () => {
   it("creates version N+1", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     const second = await editPlan(db, {
+      capTimezone: TEST_TZ,
       planId: plan.planId,
       editedBy: senderId,
       categories: [{ name: "Housing", icon: "home", monthlyCap: money(50_000n, "USD") }],
@@ -116,10 +136,15 @@ describe("editing a plan", () => {
   // The acceptance criterion: version N is byte-identical afterwards.
   it("leaves the previous version byte-identical", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     const before = await snapshot(plan.versionId);
     await editPlan(db, {
+      capTimezone: TEST_TZ,
       planId: plan.planId,
       editedBy: senderId,
       categories: [{ name: "Food", icon: "food", monthlyCap: money(1n, "GTQ") }],
@@ -133,10 +158,15 @@ describe("editing a plan", () => {
   // an edit must mint new category rows rather than repoint the old ones.
   it("mints new category rows rather than moving the old ones", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
     const originalIds = (await readVersion(db, plan.versionId)).categories.map((c) => c.id);
 
     const second = await editPlan(db, {
+      capTimezone: TEST_TZ,
       planId: plan.planId,
       editedBy: senderId,
       categories: [{ name: "Housing", icon: "home", monthlyCap: null }],
@@ -154,8 +184,13 @@ describe("editing a plan", () => {
   // own. An edit that marked everything system would erase that distinction.
   it("does not mark a sender's own categories as system", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
     const second = await editPlan(db, {
+      capTimezone: TEST_TZ,
       planId: plan.planId,
       editedBy: senderId,
       categories: [
@@ -170,8 +205,13 @@ describe("editing a plan", () => {
 
   it("records who made the edit", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
     const second = await editPlan(db, {
+      capTimezone: TEST_TZ,
       planId: plan.planId,
       editedBy: senderId,
       categories: [{ name: "Other", icon: "dots", monthlyCap: null }],
@@ -181,10 +221,15 @@ describe("editing a plan", () => {
 
   it("numbers a run of edits 1 through 6 with no gaps", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     for (let i = 0; i < 5; i += 1) {
       await editPlan(db, {
+        capTimezone: TEST_TZ,
         planId: plan.planId,
         editedBy: senderId,
         categories: [{ name: "Savings", icon: "piggy", monthlyCap: money(BigInt(i), "USD") }],
@@ -206,12 +251,17 @@ describe("editing a plan", () => {
 describe("version_number under concurrent edits", () => {
   it("stays unique and gapless with 12 simultaneous edits", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     const edits = 12;
     await Promise.all(
       Array.from({ length: edits }, (_, i) =>
         editPlan(db, {
+          capTimezone: TEST_TZ,
           planId: plan.planId,
           editedBy: senderId,
           categories: [{ name: "Business", icon: "tools", monthlyCap: money(BigInt(i), "USD") }],
@@ -238,11 +288,16 @@ describe("version_number under concurrent edits", () => {
 
   it("leaves the plan pointing at the highest version", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     await Promise.all(
       Array.from({ length: 8 }, () =>
         editPlan(db, {
+          capTimezone: TEST_TZ,
           planId: plan.planId,
           editedBy: senderId,
           categories: [{ name: "Food", icon: "food", monthlyCap: null }],
@@ -258,9 +313,14 @@ describe("version_number under concurrent edits", () => {
 describe("caps are Money", () => {
   it("distinguishes a cap of zero from no cap", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     const edited = await editPlan(db, {
+      capTimezone: TEST_TZ,
       planId: plan.planId,
       editedBy: senderId,
       categories: [
@@ -281,7 +341,11 @@ describe("caps are Money", () => {
 
   it("round-trips any cap through Money with no precision loss", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
 
     await fc.assert(
       fc.asyncProperty(
@@ -290,6 +354,7 @@ describe("caps are Money", () => {
         async (amount, currency) => {
           const cap: Money = money(amount, currency);
           const edited = await editPlan(db, {
+            capTimezone: TEST_TZ,
             planId: plan.planId,
             editedBy: senderId,
             categories: [{ name: "Housing", icon: "home", monthlyCap: cap }],
@@ -306,10 +371,15 @@ describe("caps are Money", () => {
 
   it("keeps a cap larger than Number.MAX_SAFE_INTEGER exact", async () => {
     const { relationshipId, senderId } = await aRelationship();
-    const plan = await createPlan(db, { relationshipId, createdBy: senderId });
+    const plan = await createPlan(db, {
+      relationshipId,
+      createdBy: senderId,
+      capTimezone: TEST_TZ,
+    });
     const huge = 9_007_199_254_740_993n; // 2^53 + 1, not representable as a double
 
     const edited = await editPlan(db, {
+      capTimezone: TEST_TZ,
       planId: plan.planId,
       editedBy: senderId,
       categories: [{ name: "Housing", icon: "home", monthlyCap: money(huge, "USD") }],

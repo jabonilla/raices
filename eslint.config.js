@@ -55,6 +55,8 @@ export default tseslint.config(
       "apps/api/src/plans/**/*.ts",
       // P2.4: a request carries an amount and is compared against a cap.
       "apps/api/src/requests/**/*.ts",
+      // P2.5: a transaction carries an amount, a fee and an FX rate.
+      "apps/api/src/transactions/**/*.ts",
     ],
     rules: {
       "no-restricted-syntax": ["error", ...FLOAT_BAN_SELECTORS],

@@ -17,6 +17,9 @@ import {
 import { UndeclaredTransitionError } from "../src/audit/index.js";
 import { startTestPostgres, type TestPostgres } from "../../../tests/pg.js";
 
+/** Every plan version states its cap window timezone (issue #92). */
+const TEST_TZ = "America/Guatemala";
+
 /**
  * P2.4 behaviour against real Postgres.
  *
@@ -51,7 +54,11 @@ async function aRelationshipWithPlan(cap: Money | null = null): Promise<Fixture>
   const recipient = await findOrCreateUserByPhone(db, { phone: aPhone(), role: "recipient" });
   const rel = await invite(db, { senderId: sender.id, recipientId: recipient.id });
 
-  const plan = await createPlan(db, { relationshipId: rel.id, createdBy: sender.id });
+  const plan = await createPlan(db, {
+    relationshipId: rel.id,
+    createdBy: sender.id,
+    capTimezone: TEST_TZ,
+  });
   const version = await readVersion(db, plan.versionId);
   const housing = version.categories.find((c) => c.name === "Housing");
   if (housing === undefined) throw new Error("expected a Housing category");
@@ -62,6 +69,7 @@ async function aRelationshipWithPlan(cap: Money | null = null): Promise<Fixture>
   // A cap arrives by editing the plan, which appends a version rather than
   // mutating the one already in force, so the category gets a new id.
   const next = await editPlan(db, {
+    capTimezone: TEST_TZ,
     planId: plan.planId,
     editedBy: sender.id,
     categories: [{ name: "Housing", icon: "home", monthlyCap: cap, isSystem: true }],

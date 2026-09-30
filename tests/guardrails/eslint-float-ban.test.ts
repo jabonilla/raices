@@ -31,6 +31,8 @@ const PLANS_DIR = join(REPO_ROOT, "apps/api/src/plans");
 const REQUESTS_DIR = join(REPO_ROOT, "apps/api/src/requests");
 // The pure tier classifier compares those amounts; it is inside the ban too.
 const TIER_DIR = join(REPO_ROOT, "apps/api/src/requests/tier");
+// P2.5: a transaction carries an amount, a fee and an FX rate.
+const TRANSACTIONS_DIR = join(REPO_ROOT, "apps/api/src/transactions");
 // Path outside the float ban scope — the rule must NOT fire here.
 const OUTSIDE_DIR = join(REPO_ROOT, "apps/api/src");
 
@@ -85,6 +87,7 @@ describe("guardrail: float ban in money paths", () => {
     ["apps/api/src/plans", PLANS_DIR],
     ["apps/api/src/requests", REQUESTS_DIR],
     ["apps/api/src/requests/tier", TIER_DIR],
+    ["apps/api/src/transactions", TRANSACTIONS_DIR],
   ] as const) {
     for (const [name, code] of Object.entries(FIXTURES)) {
       it(`reports an error for ${name} in ${dirName}`, async () => {

@@ -150,13 +150,12 @@ async function anApprovedRequest(): Promise<string> {
 async function insertTransaction(overrides: Record<string, string> = {}): Promise<string> {
   const requestId = overrides["request_id"] ?? `'${await anApprovedRequest()}'`;
   const columns: Record<string, string> = {
-    request_id: requestId,
     relationship_id: `'${seed.relationshipId}'`,
     amount_minor: "5000",
     amount_currency: "'USD'",
     approved_by: `'${seed.senderId}'`,
     ...overrides,
-    ...{ request_id: requestId },
+    request_id: requestId,
   };
   const made = await rows<{ id: string }>(
     `insert into transaction (${Object.keys(columns).join(", ")})
