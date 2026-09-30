@@ -239,14 +239,16 @@ describe("classify boundaries at the largest amounts", () => {
 
 describe("classify refuses inputs it cannot compare", () => {
   it("throws when the request and the cap are in different currencies", () => {
-    expect(() =>
-      classify(build({ amount: usd(10_00n), cap: money(100_00n, "GTQ") })),
-    ).toThrow(CurrencyMismatchError);
+    expect(() => classify(build({ amount: usd(10_00n), cap: money(100_00n, "GTQ") }))).toThrow(
+      CurrencyMismatchError,
+    );
   });
 
   it("throws when the request and the spend to date are in different currencies", () => {
     expect(() =>
-      classify(build({ amount: usd(10_00n), spendToDate: money(10_00n, "GTQ"), cap: usd(100_00n) })),
+      classify(
+        build({ amount: usd(10_00n), spendToDate: money(10_00n, "GTQ"), cap: usd(100_00n) }),
+      ),
     ).toThrow(CurrencyMismatchError);
   });
 

@@ -12,6 +12,7 @@ import { startTestPostgres, type TestPostgres } from "../../../tests/pg.js";
  */
 
 const FROZEN_VIOLATION = "RQ001";
+const FOREIGN_CATEGORY = "RQ002";
 const AUDIT_REQUIRED = "AU002";
 const CHECK_VIOLATION = "23514";
 const NOT_NULL_VIOLATION = "23502";
@@ -63,6 +64,8 @@ function aPhone(): string {
 
 interface Seed {
   readonly relationshipId: string;
+  /** A second relationship, so "cannot be moved" can be tried against a real one. */
+  readonly otherRelationshipId: string;
   readonly senderId: string;
   readonly recipientId: string;
   readonly categoryId: string;
@@ -107,7 +110,19 @@ async function seedFixture(): Promise<Seed> {
     const categoryId = category.rows[0]?.id;
     if (categoryId === undefined) throw new Error("seed failed");
 
-    return { relationshipId, senderId, recipientId, categoryId };
+    const third = await client.query<{ id: string }>(
+      `insert into app_user (phone, roles) values ($1, '{recipient}') returning id`,
+      [aPhone()],
+    );
+    const other = await client.query<{ id: string }>(
+      `insert into relationship (user_a_id, user_b_id, role_of_a, role_of_b)
+       values ($1, $2, 'sender', 'recipient') returning id`,
+      [senderId, third.rows[0]?.id],
+    );
+    const otherRelationshipId = other.rows[0]?.id;
+    if (otherRelationshipId === undefined) throw new Error("seed failed");
+
+    return { relationshipId, otherRelationshipId, senderId, recipientId, categoryId };
   });
 }
 
@@ -195,7 +210,9 @@ describe("request columns", () => {
   });
 
   it("allows a null category, which is how a request outside any plan is stored", async () => {
-    await expect(insertRequest({ category_id: "null", tier: "'unrecognized'" })).resolves.toBeTruthy();
+    await expect(
+      insertRequest({ category_id: "null", tier: "'unrecognized'" }),
+    ).resolves.toBeTruthy();
   });
 
   it("requires the relationship and the requester to exist", async () => {
@@ -312,35 +329,57 @@ describe("the ask is immutable", () => {
     description: "'Otra cosa'",
     tier: "'recurring'",
     is_emergency: "true",
-    requested_by: "requested_by",
-    relationship_id: "relationship_id",
     channel_of_origin: "'sms'",
   };
 
   for (const [column, value] of Object.entries(FROZEN)) {
     it(`refuses an update to ${column}`, async () => {
       const id = await insertRequest();
-      expect(
-        await failureCode(`update request set ${column} = ${value} where id = '${id}'`),
-      ).toBe(FROZEN_VIOLATION);
+      expect(await failureCode(`update request set ${column} = ${value} where id = '${id}'`)).toBe(
+        FROZEN_VIOLATION,
+      );
     });
   }
+
+  it("refuses an update to requested_by", async () => {
+    const id = await insertRequest();
+    expect(
+      await failureCode(`update request set requested_by = '${seed.senderId}' where id = '${id}'`),
+    ).toBe(FROZEN_VIOLATION);
+  });
+
+  it("refuses moving a request to another relationship", async () => {
+    const id = await insertRequest();
+    expect(
+      await failureCode(
+        `update request set relationship_id = '${seed.otherRelationshipId}' where id = '${id}'`,
+      ),
+    ).toBe(FROZEN_VIOLATION);
+  });
 
   it("refuses to clear an emergency flag after the fact", async () => {
     // PRD: "Emergency status cannot be applied retroactively." Removing one is
     // the same rewrite in the other direction.
     const id = await insertRequest({ is_emergency: "true" });
-    expect(
-      await failureCode(`update request set is_emergency = false where id = '${id}'`),
-    ).toBe(FROZEN_VIOLATION);
+    expect(await failureCode(`update request set is_emergency = false where id = '${id}'`)).toBe(
+      FROZEN_VIOLATION,
+    );
   });
 
-  it("allows the resolution fields to move", async () => {
-    const id = await insertRequest();
-    // Status is guarded separately by the audit trigger, so move only the
-    // fields that travel with it.
+  it("does not freeze the resolution fields", async () => {
+    // The control. Without it, a trigger that froze every column would pass
+    // every test above and nothing would notice a request could not be
+    // resolved at all. Rewording a decline changes no status, so it needs no
+    // audit row and no other constraint applies.
+    const id = await insertResolved("declined", {
+      resolved_by: `'${seed.senderId}'`,
+      resolved_at: "now()",
+      decline_reason: "'No este mes'",
+    });
     expect(
-      await failureCode(`update request set resolved_at = now() where id = '${id}'`),
+      await failureCode(
+        `update request set decline_reason = 'Hablemos primero' where id = '${id}'`,
+      ),
     ).toBeUndefined();
   });
 });
@@ -386,15 +425,52 @@ describe("status changes need an audit row", () => {
   });
 });
 
+describe("a request's category belongs to its own relationship's plan", () => {
+  it("refuses a category from another relationship's plan", async () => {
+    // The foreign key proves the category exists; only this proves it is one
+    // of ours. Without it a request could be filed against another pair's
+    // plan, and counted against their cap.
+    expect(
+      await failureCode(
+        `insert into request (relationship_id, requested_by, amount_minor, amount_currency,
+                              category_id, description, tier, channel_of_origin)
+         values ($1, $2, 100, 'USD', $3, 'x', 'planned_investment', 'app')`,
+        { values: [seed.otherRelationshipId, seed.senderId, seed.categoryId] },
+      ),
+    ).toBe(FOREIGN_CATEGORY);
+  });
+
+  it("refuses moving a request's category to another relationship's plan", async () => {
+    // Frozen already refuses this; the deferred trigger is the second lock,
+    // for anything that reaches the table with the frozen trigger disabled.
+    const id = await insertRequest();
+    expect(await failureCode(`update request set category_id = null where id = '${id}'`)).toBe(
+      FROZEN_VIOLATION,
+    );
+  });
+});
+
 describe("grants", () => {
   it("does not let the app role delete a request", async () => {
     const id = await insertRequest();
-    expect(
-      await failureCode(`delete from request where id = '${id}'`, { role: "app" }),
-    ).toBe(INSUFFICIENT_PRIVILEGE);
+    expect(await failureCode(`delete from request where id = '${id}'`, { role: "app" })).toBe(
+      INSUFFICIENT_PRIVILEGE,
+    );
   });
 
   it("does not let the app role truncate requests", async () => {
     expect(await failureCode("truncate request", { role: "app" })).toBe(INSUFFICIENT_PRIVILEGE);
+  });
+
+  it("does not let even the owner delete a request", async () => {
+    // The grant stops the app role. The trigger stops everyone, including
+    // whoever owns the schema: "a declined request remains a Request record"
+    // is only true if nobody can make one disappear.
+    const id = await insertRequest();
+    expect(await failureCode(`delete from request where id = '${id}'`)).toBe(FROZEN_VIOLATION);
+  });
+
+  it("does not let even the owner truncate requests", async () => {
+    expect(await failureCode("truncate request")).toBe(FROZEN_VIOLATION);
   });
 });

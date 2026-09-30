@@ -73,8 +73,9 @@ async function aRelationshipWithPlan(cap: Money | null = null): Promise<Fixture>
 }
 
 async function ledgerTransactionCount(): Promise<bigint> {
-  const { rows } = await sql<{ n: string }>`select count(*)::text as n from ledger_transaction`
-    .execute(db);
+  const { rows } = await sql<{
+    n: string;
+  }>`select count(*)::text as n from ledger_transaction`.execute(db);
   return BigInt(rows[0]?.n ?? "0");
 }
 

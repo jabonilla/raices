@@ -45,7 +45,10 @@ const PROBES: readonly Probe[] = [
 const ALLOWED: readonly Probe[] = [
   { name: "selectFrom request", code: `await db.selectFrom("request").select("id").execute();` },
   { name: "selectFrom category", code: `await db.selectFrom("category").select("id").execute();` },
-  { name: "insertInto audit_log", code: `await db.selectFrom("audit_log").select("id").execute();` },
+  {
+    name: "insertInto audit_log",
+    code: `await db.selectFrom("audit_log").select("id").execute();`,
+  },
 ];
 
 function source(body: string): string {

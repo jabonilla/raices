@@ -3,6 +3,7 @@ import type { ColumnType } from "kysely";
 import type { AuditDatabase } from "../audit/schema.js";
 import type { PlanDatabase } from "../plans/schema.js";
 import type { RelationshipDatabase } from "../relationships/schema.js";
+import type { RequestDatabase } from "../requests/schema.js";
 
 /**
  * The typed database schema Kysely builds against, mirroring
@@ -57,7 +58,8 @@ export interface LedgerEntryTable {
   created_at: DefaultedImmutable<Date>;
 }
 
-export interface Database extends AuditDatabase, RelationshipDatabase, PlanDatabase {
+export interface Database
+  extends AuditDatabase, RelationshipDatabase, PlanDatabase, RequestDatabase {
   ledger_account: LedgerAccountTable;
   ledger_transaction: LedgerTransactionTable;
   ledger_entry: LedgerEntryTable;

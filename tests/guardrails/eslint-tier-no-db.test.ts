@@ -25,7 +25,10 @@ const TIER_DIR = join(REPO_ROOT, "apps/api/src/requests/tier");
 /** Outside it: the rest of the requests module may of course reach the DB. */
 const REQUESTS_DIR = join(REPO_ROOT, "apps/api/src/requests");
 
-const FIXTURE_NAME = "__guardrail_fixture__.ts";
+// Distinct from the float-ban guardrail's fixture name. Both lint files in
+// apps/api/src/requests/, both run in parallel workers, and a shared name
+// means one test reads the other's contents.
+const FIXTURE_NAME = "__tier_guardrail_fixture__.ts";
 
 const BANNED: Record<string, string> = {
   "the kysely query builder": `import { sql } from "kysely";\nexport { sql };\n`,
@@ -102,7 +105,10 @@ describe("guardrail: the tier classifier cannot import a database", () => {
     // The ban is the classifier's boundary, not a rule against the module
     // that calls it. If this starts failing, the scope has been widened past
     // what the ticket asks for.
-    const errors = await errorsFor(REQUESTS_DIR, `import { sql } from "kysely";\nexport { sql };\n`);
+    const errors = await errorsFor(
+      REQUESTS_DIR,
+      `import { sql } from "kysely";\nexport { sql };\n`,
+    );
     const banned = errors.filter((m) => m.ruleId !== null && IMPORT_RULES.has(m.ruleId));
     expect(banned).toEqual([]);
   });
