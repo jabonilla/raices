@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { cleanup, render, type RenderResult } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fixtureProvider } from "../src/data/fixtureProvider";
 import { ScreenData } from "../src/data/ScreenDataContext";
@@ -16,6 +16,16 @@ import { RelationshipDetailScreen } from "../src/screens/RelationshipDetailScree
 import { RelationshipsScreen } from "../src/screens/RelationshipsScreen";
 
 afterEach(cleanup);
+
+// The fixture uses relative dates (daysAgoISO). Mock Date.now so snapshots
+// are deterministic — otherwise they'd change daily and across timezones.
+const FIXED_NOW = new Date("2026-09-29T12:00:00Z").getTime();
+beforeEach(() => {
+  vi.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const SCREENS: Array<{ name: string; element: ReactElement }> = [
   { name: "Home", element: <HomeScreen /> },
