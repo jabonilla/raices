@@ -3,10 +3,20 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { RateLimitedError } from "./errors.js";
 
 export interface RateLimitOptions {
-  /** Max requests per window, per client IP. */
+  /** Max requests per window, per client key. */
   readonly max: number;
   /** Window length in milliseconds. */
   readonly windowMs: number;
+  /**
+   * Resolves the rate-limit key for a request. Defaults to `request.ip`.
+   *
+   * K3 (auth): pass the same trusted clientIp resolver that IdentityService
+   * uses, so the outer route limiter and the inner service limiter count
+   * the same key. Do NOT pass a resolver that trusts arbitrary
+   * X-Forwarded-For headers — behind a proxy that collapses every user
+   * into one bucket.
+   */
+  readonly keyResolver?: (request: FastifyRequest) => string;
 }
 
 interface WindowState {
@@ -36,6 +46,46 @@ export function registerSecurityHeaders(app: FastifyInstance): void {
 }
 
 /**
+ * Fixed-window rate limiter, in memory. Creates the check function WITHOUT
+ * installing any global hook — the caller attaches it where it's visible
+ * (route preHandler) so static analysis can see the protection.
+ *
+ * Use this for routes that need a custom key resolver (e.g. K3's auth
+ * routes, which must use the same trusted clientIp resolver as
+ * IdentityService to avoid double-counting or key mismatch between the
+ * outer route limiter and the inner service limiter).
+ *
+ * Limits: single process only — each replica keeps its own counters.
+ * Expired windows are pruned opportunistically on each request.
+ */
+export function createRateLimiter(
+  options: RateLimitOptions,
+): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+  const windows = new Map<string, WindowState>();
+  const resolveKey = options.keyResolver ?? ((request) => request.ip);
+
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const key = resolveKey(request);
+    const now = Date.now();
+    for (const [k, state] of windows) {
+      if (state.resetAt <= now) {
+        windows.delete(k);
+      }
+    }
+    let state = windows.get(key);
+    if (state === undefined || state.resetAt <= now) {
+      state = { count: 0, resetAt: now + options.windowMs };
+      windows.set(key, state);
+    }
+    state.count += 1;
+    if (state.count > options.max) {
+      reply.header("Retry-After", Math.max(1, Math.ceil((state.resetAt - now) / 1000)));
+      throw new RateLimitedError();
+    }
+  };
+}
+
+/**
  * Fixed-window rate limiter, per client IP, in memory.
  *
  * Limits: single process only — each replica keeps its own counters, so the
@@ -57,26 +107,7 @@ export function registerRateLimit(
   app: FastifyInstance,
   options: RateLimitOptions,
 ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
-  const windows = new Map<string, WindowState>();
-
-  const check = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const now = Date.now();
-    for (const [key, state] of windows) {
-      if (state.resetAt <= now) {
-        windows.delete(key);
-      }
-    }
-    let state = windows.get(request.ip);
-    if (state === undefined || state.resetAt <= now) {
-      state = { count: 0, resetAt: now + options.windowMs };
-      windows.set(request.ip, state);
-    }
-    state.count += 1;
-    if (state.count > options.max) {
-      reply.header("Retry-After", Math.max(1, Math.ceil((state.resetAt - now) / 1000)));
-      throw new RateLimitedError();
-    }
-  };
+  const check = createRateLimiter(options);
 
   app.addHook("onRequest", async (request, reply) => {
     // /health is exempt (liveness must always answer); /webhooks/channel

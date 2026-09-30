@@ -40,6 +40,29 @@ export interface BuildAppOptions {
   readonly webhooks?: Partial<WebhookRouteDeps> | undefined;
 }
 
+/**
+ * Authorization policies for K2-owned host routes (K3 integration).
+ *
+ * K3's installAuthorization (K3.10) must run before all routes in the host
+ * scope. These declarations state the policy for each K2-owned route so
+ * the authorization system can enforce coverage: every registered route
+ * must have an explicit policy, deny by default.
+ *
+ * - /health, /ready, /openapi.json: public — the platform and clients need
+ *   these without credentials (liveness, readiness, API contract).
+ * - /webhooks/channel: signature-verified — not user auth, but the webhook
+ *   signature verifier (see webhooks/signature.ts) authenticates the sender.
+ *   The rate limiter also applies as a cheap outer bound.
+ */
+export const HOST_ROUTE_POLICIES = {
+  "GET /health": "public",
+  "GET /ready": "public",
+  "GET /openapi.json": "public",
+  "POST /webhooks/channel": "signature-verified",
+} as const;
+
+export type HostRoutePolicy = (typeof HOST_ROUTE_POLICIES)[keyof typeof HOST_ROUTE_POLICIES];
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const isProduction = process.env.NODE_ENV === "production";
 
@@ -77,6 +100,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   registerSecurityHeaders(app);
+
+  // K3 integration point (K3.10): installAuthorization must run here —
+  // before ANY routes are registered in the host scope — so the
+  // authorization policy covers every route including the K2-owned
+  // /health, /ready, /openapi.json, and /webhooks/channel (see
+  // HOST_ROUTE_POLICIES above). K3 owns the installAuthorization
+  // implementation; this is the seam where it plugs in.
+  // TODO(k3): call installAuthorization(app) here when K3.10 lands.
+
   const checkRateLimit = registerRateLimit(app, {
     max: options.rateLimitMax ?? 600,
     windowMs: options.rateLimitWindowMs ?? 60_000,
