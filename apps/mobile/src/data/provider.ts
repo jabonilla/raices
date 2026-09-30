@@ -15,14 +15,15 @@ import type {
  * - `fixtureProvider` — realistic Spanish-language sample data for
  *   development and tests, including the ugly cases (long names, wide
  *   amounts, empty lists).
- * - `realProvider` — the Phase 3 stub. Every method throws "not implemented".
+ * - `realProvider` — calls the real API (K2.41). Selected by env var
+ *   EXPO_PUBLIC_DATA_PROVIDER=real. Fixture stays the default.
  *
  * Injection: the app root (or a test) chooses the implementation and passes
  * it through `<ScreenData provider={...}>`. Screens never import a concrete
  * provider — a test fails if they do.
  *
  * The interface is synchronous today because the screens are static shells.
- * When the real backend lands in Phase 3 these methods become async; the
+ * When K3's endpoints (K3.16/K3.17) land, these methods become async; the
  * existing `screenState="loading"` path on every screen already covers that
  * transition, so it is a swap, not a rewrite.
  */

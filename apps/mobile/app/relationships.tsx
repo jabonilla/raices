@@ -3,6 +3,7 @@ import type { JSX } from "react";
 
 import { ScreenData } from "../src/data/ScreenDataContext";
 import { fixtureProvider } from "../src/data/fixtureProvider";
+import { realProvider, selectProvider } from "../src/data/realProvider";
 import { RelationshipsScreen } from "../src/screens/RelationshipsScreen";
 
 /**
@@ -10,8 +11,9 @@ import { RelationshipsScreen } from "../src/screens/RelationshipsScreen";
  */
 export default function RelationshipsRoute(): JSX.Element {
   const router = useRouter();
+  const provider = selectProvider() === "real" ? realProvider : fixtureProvider;
   return (
-    <ScreenData provider={fixtureProvider}>
+    <ScreenData provider={provider}>
       <RelationshipsScreen
         onSelectRelationship={(id) => {
           router.push(`/relationships/${id}`);

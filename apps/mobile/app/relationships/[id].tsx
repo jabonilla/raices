@@ -3,6 +3,7 @@ import type { JSX } from "react";
 
 import { ScreenData } from "../../src/data/ScreenDataContext";
 import { fixtureProvider } from "../../src/data/fixtureProvider";
+import { realProvider, selectProvider } from "../../src/data/realProvider";
 import { RelationshipDetailScreen } from "../../src/screens/RelationshipDetailScreen";
 
 /**
@@ -12,8 +13,9 @@ import { RelationshipDetailScreen } from "../../src/screens/RelationshipDetailSc
 export default function RelationshipDetailRoute(): JSX.Element {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const provider = selectProvider() === "real" ? realProvider : fixtureProvider;
   return (
-    <ScreenData provider={fixtureProvider}>
+    <ScreenData provider={provider}>
       <RelationshipDetailScreen
         relationshipId={id}
         onBack={() => {
