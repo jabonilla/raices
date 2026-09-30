@@ -40,12 +40,14 @@ afterAll(async () => {
 it("validates OTP boundary, never returns code, and requires bearer for revoke", async () => {
   const invalid = await app.inject({
     method: "POST",
+    headers: { "idempotency-key": crypto.randomUUID() },
     url: "/auth/otp/request",
     payload: { phone: "invalid" },
   });
   expect(invalid.statusCode).toBe(400);
   const request = await app.inject({
     method: "POST",
+    headers: { "idempotency-key": crypto.randomUUID() },
     url: "/auth/otp/request",
     payload: { phone: "+15551100001" },
   });
@@ -57,6 +59,7 @@ it("validates OTP boundary, never returns code, and requires bearer for revoke",
   if (code === undefined) throw new Error("Missing fake code");
   const verification = await app.inject({
     method: "POST",
+    headers: { "idempotency-key": crypto.randomUUID() },
     url: "/auth/otp/verify",
     payload: { challengeId: body.challengeId, code },
   });
@@ -69,7 +72,10 @@ it("validates OTP boundary, never returns code, and requires bearer for revoke",
       await app.inject({
         method: "POST",
         url: "/auth/session/revoke",
-        headers: { authorization: `Bearer ${session.token}` },
+        headers: {
+          authorization: `Bearer ${session.token}`,
+          "idempotency-key": crypto.randomUUID(),
+        },
       })
     ).statusCode,
   ).toBe(204);

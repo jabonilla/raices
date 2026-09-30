@@ -66,3 +66,25 @@ it("enforces sender policy before the handler for GET and implicit HEAD", async 
   );
   await app.close();
 });
+
+it("lets signature-verified routes use their provider guard without bearer auth or an HTTP key", async () => {
+  const app = Fastify();
+  let authenticationCalls = 0;
+  const router = installAuthorization(app, {
+    identity: {
+      authenticate: () => {
+        authenticationCalls += 1;
+        return Promise.reject(new UnauthorizedError());
+      },
+    },
+  });
+  router.route({
+    method: "POST",
+    url: "/webhook",
+    policy: { kind: "signature-verified" },
+    handler: () => Promise.resolve({ ok: true }),
+  });
+  expect((await app.inject({ method: "POST", url: "/webhook", payload: {} })).statusCode).toBe(200);
+  expect(authenticationCalls).toBe(0);
+  await app.close();
+});
