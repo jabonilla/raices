@@ -1,4 +1,4 @@
-import { add, compare, type Money } from "@raices/money";
+import { CurrencyMismatchError, add, compare, type Money } from "@raices/money";
 
 /**
  * P2.4 — trust tier classification.
@@ -14,28 +14,40 @@ import { add, compare, type Money } from "@raices/money";
  *
  * ## Where each tier comes from
  *
- * PRD section 7 gives four tiers and presents them as covering every request:
+ * PRD section 7 gives four tiers:
  *
  * | Recurring          | Pre-approved, on schedule, within parameters |
  * | Planned investment | Large, milestone-gated                       |
  * | Emergency          | Marked urgent by recipient                   |
  * | Unrecognized       | Outside plan or over cap                     |
  *
- * Three of those are decidable from the inputs above. `planned_investment` is
- * not: "large, milestone-gated" needs a milestone, and there is no milestone
- * or goal anywhere in the PRD's data model — the mechanism is marked P1 and
- * the stages appear only in the design system. So it is reached by
- * elimination, which the definitions support: a request inside the plan and
- * within its cap is not "outside plan or over cap", so it is not
- * unrecognized; with no rule behind it, it is not "on schedule", so it is not
- * recurring. It is the planned, one-off spend, and holding it for
- * verification is what P1 adds on top.
+ * Two of those this classifier can positively establish: `emergency`, which
+ * the recipient marks, and `recurring`, which an active rule and a cap make
+ * checkable. `planned_investment` it cannot — see the note on TIERS below.
  *
- * That elimination is the one interpretive step in this module and it is
- * called out in the PR. Everything else below cites a line.
+ * Everything it cannot establish returns `unrecognized`, which routes to
+ * manual approval. That is deliberate, and it is not the same as guessing:
+ * falling back to the tier that asks a person is the only safe answer when
+ * the data to distinguish is missing. The alternative — treating whatever
+ * the other definitions do not claim as the most legitimate-sounding tier —
+ * would give a request nobody agreed to the appearance of a pre-agreed one.
  */
 
-/** Every tier, in the order PRD section 7 lists them. */
+/**
+ * Every tier, in the order PRD section 7 lists them.
+ *
+ * `planned_investment` is declared and **not currently reachable**. The PRD
+ * defines it as "large, milestone-gated" and marks its mechanism — held,
+ * released on verification — as P1. There is no milestone or goal anywhere
+ * in the data model, so nothing among this function's inputs can establish
+ * that a request is one. It stays in the enum because the tier is real and
+ * the database stores it; it is simply not something we can yet detect.
+ *
+ * When milestones arrive, whoever adds them decides deliberately how a
+ * request becomes one. `tier.test.ts` asserts the tier is unreachable today
+ * and fails the moment the classifier can return it, so that decision cannot
+ * be made by accident.
+ */
 export const TIERS = ["recurring", "planned_investment", "emergency", "unrecognized"] as const;
 
 export type Tier = (typeof TIERS)[number];
@@ -86,15 +98,92 @@ export interface TierInput {
 }
 
 /**
+ * Whether the request's currency can be compared with everything it will be
+ * compared against.
+ *
+ * A precondition rather than something the happy path discovers: two amounts
+ * in different currencies have no order, and a classifier that quietly
+ * returned a tier for them would let a cap stop applying without anyone
+ * noticing. Checked up front so the decision below can short-circuit freely
+ * without changing whether a mismatch is reported.
+ */
+function assertComparable(input: TierInput): void {
+  const { currency } = input.request.amount;
+
+  const same = (other: Money | null | undefined): void => {
+    if (other != null && other.currency !== currency) {
+      throw new CurrencyMismatchError(currency, other.currency);
+    }
+  };
+
+  same(input.spendToDate);
+  same(input.recurringRule?.amount);
+  same(input.planVersion?.categories.find((c) => c.id === input.request.categoryId)?.monthlyCap);
+}
+
+/**
+ * Whether this request is "pre-approved, on schedule, within parameters" —
+ * the PRD's definition of the recurring tier, and the only one of the three
+ * non-emergency tiers this function can positively establish.
+ *
+ * Every `false` below is a distinct reason the request is not on a schedule,
+ * and each one sends it to manual approval.
+ */
+function isPreApprovedSchedule(input: TierInput): boolean {
+  const { request, planVersion, spendToDate, recurringRule } = input;
+
+  // "Outside plan": no plan, no category named, or a category this version
+  // does not have. A request pointing at a category from an older version is
+  // outside the plan in force, which is the same answer.
+  if (planVersion === null || request.categoryId === null) return false;
+
+  const categoryId = request.categoryId;
+  const category = planVersion.categories.find((c) => c.id === categoryId);
+  if (category === undefined) return false;
+
+  // Nothing pre-approved it.
+  if (recurringRule === null) return false;
+
+  if (recurringRule.categoryId !== categoryId) {
+    // A caller bug, not a tier. Silently ignoring the rule would send a
+    // scheduled payment to manual approval; silently applying it would let a
+    // rule for Food auto-approve a request for Housing.
+    throw new Error(
+      `Recurring rule is for another category (${recurringRule.categoryId}) than the ` +
+        `request (${categoryId}). Pass the rule for the request's own category, or null.`,
+    );
+  }
+
+  // Feature 2 edge case: "Schedule paused -> requests in that category flag
+  // for manual approval with an explanatory note." A cancelled schedule is no
+  // less stopped than a paused one.
+  if (recurringRule.status !== "active") return false;
+
+  // "Over cap", checked before the approved amount: the ticket is explicit
+  // that a request in a recurring category exceeding what is approved is
+  // flagged, and Feature 2 that it is "never auto-rejected". Flagging it means
+  // not auto-approving it here — it stays pending for a person.
+  //
+  // The cap is a monthly budget, so it applies to the total: what has been
+  // spent plus what is being asked for. Exactly at the cap is within it.
+  if (category.monthlyCap !== null) {
+    const afterThis = add(spendToDate, request.amount);
+    if (compare(afterThis, category.monthlyCap) > 0) return false;
+  }
+
+  // "Within parameters" is the approved amount per run. One minor unit over
+  // is over.
+  return compare(request.amount, recurringRule.amount) <= 0;
+}
+
+/**
  * Classify a request into a trust tier.
  *
  * Deterministic and total over inputs whose currencies agree. A currency
- * mismatch throws `CurrencyMismatchError` rather than picking a tier: two
- * amounts in different currencies have no order, and guessing one here is how
- * a cap silently stops applying.
+ * mismatch throws `CurrencyMismatchError` rather than picking a tier.
  */
 export function classify(input: TierInput): Tier {
-  const { request, planVersion, spendToDate, recurringRule } = input;
+  assertComparable(input);
 
   // PRD line 220: emergency "removes the plan-match gate; it does not promise
   // faster settlement". So it is decided before anything about the plan is
@@ -103,50 +192,13 @@ export function classify(input: TierInput): Tier {
   // It also wins over `recurring`, which is the stricter reading: recurring
   // auto-approves and emergency asks, so marking a request urgent can never
   // remove a gate that would otherwise have applied.
-  if (request.isEmergency) return "emergency";
+  if (input.request.isEmergency) return "emergency";
 
-  // "Outside plan": no plan, no category, or a category this version does not
-  // have. A request pointing at a category from an older version is outside
-  // the plan in force, which is the same answer.
-  if (planVersion === null || request.categoryId === null) return "unrecognized";
+  if (isPreApprovedSchedule(input)) return "recurring";
 
-  const categoryId = request.categoryId;
-  const category = planVersion.categories.find((c) => c.id === categoryId);
-  if (category === undefined) return "unrecognized";
-
-  if (recurringRule !== null && recurringRule.categoryId !== categoryId) {
-    // A caller bug, not a tier. Silently ignoring the rule would classify a
-    // scheduled payment as one-off; silently applying it would let a rule for
-    // Food approve a request for Housing.
-    throw new Error(
-      `Recurring rule is for another category (${recurringRule.categoryId}) than the ` +
-        `request (${categoryId}). Pass the rule for the request's own category, or null.`,
-    );
-  }
-
-  // "Over cap", checked before the rule: the ticket is explicit that a
-  // request in a recurring category exceeding what is approved is flagged,
-  // and Feature 2 that it is "never auto-rejected". Flagged is `unrecognized`
-  // — the tier whose mechanism is "flagged for approval". It stays pending
-  // for a person, which is the whole point of not auto-declining it.
-  //
-  // The cap is a monthly budget, so it applies to the total: what has been
-  // spent plus what is being asked for. Exactly at the cap is within it.
-  if (category.monthlyCap !== null) {
-    const afterThis = add(spendToDate, request.amount);
-    if (compare(afterThis, category.monthlyCap) > 0) return "unrecognized";
-  }
-
-  if (recurringRule !== null) {
-    // Feature 2 edge case: "Schedule paused -> requests in that category flag
-    // for manual approval with an explanatory note." A cancelled schedule is
-    // no less stopped than a paused one.
-    if (recurringRule.status !== "active") return "unrecognized";
-
-    // "Within parameters" is the approved amount per run. One minor unit over
-    // is over.
-    return compare(request.amount, recurringRule.amount) <= 0 ? "recurring" : "unrecognized";
-  }
-
-  return "planned_investment";
+  // "Outside plan or over cap", and also everything else this function cannot
+  // establish — including a request that may well be a planned investment,
+  // which we have no way to recognise (see TIERS). Unrecognized routes to
+  // manual approval, which is where anything we cannot categorise belongs.
+  return "unrecognized";
 }

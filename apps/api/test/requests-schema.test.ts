@@ -135,7 +135,7 @@ async function insertRequest(overrides: Record<string, string> = {}): Promise<st
     amount_currency: "'USD'",
     category_id: `'${seed.categoryId}'`,
     description: "'Renta'",
-    tier: "'planned_investment'",
+    tier: "'unrecognized'",
     channel_of_origin: "'whatsapp'",
     ...overrides,
   };
@@ -199,6 +199,14 @@ describe("request columns", () => {
 
   it("rejects an unknown tier", async () => {
     await expect(insertRequest({ tier: "'vip'" })).rejects.toThrow();
+  });
+
+  it("still stores planned_investment, which the classifier cannot yet produce", async () => {
+    // The tier is real and the column accepts it; only the classifier has no
+    // way to detect one (PRD defines it as milestone-gated, and there are no
+    // milestones). Dropping it from the column would have to be undone the
+    // day milestones arrive.
+    await expect(insertRequest({ tier: "'planned_investment'" })).resolves.toBeTruthy();
   });
 
   it("rejects an unknown status", async () => {

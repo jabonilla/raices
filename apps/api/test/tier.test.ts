@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { CurrencyMismatchError, money, type Currency, type Money } from "@raices/money";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
@@ -28,7 +31,7 @@ const usd = (minor: bigint): Money => money(minor, "USD");
 
 interface Build {
   readonly amount?: Money;
-  readonly categoryId?: string;
+  readonly categoryId?: string | null;
   readonly isEmergency?: boolean;
   /** Undefined is a plan whose version has this category; null is no plan. */
   readonly cap?: Money | null;
@@ -39,7 +42,7 @@ interface Build {
 }
 
 function build(b: Build): TierInput {
-  const categoryId = b.categoryId ?? CATEGORY;
+  const categoryId = b.categoryId === undefined ? CATEGORY : b.categoryId;
   return {
     request: {
       amount: b.amount ?? usd(10_00n),
@@ -51,7 +54,9 @@ function build(b: Build): TierInput {
         ? null
         : {
             id: "v0000000-0000-4000-8000-000000000001",
-            categories: [{ id: b.planCategoryId ?? categoryId, monthlyCap: b.cap ?? null }],
+            categories: [
+              { id: b.planCategoryId ?? categoryId ?? CATEGORY, monthlyCap: b.cap ?? null },
+            ],
           },
     spendToDate: b.spendToDate ?? usd(0n),
     recurringRule: b.rule ?? null,
@@ -124,25 +129,25 @@ const CASES: readonly Case[] = [
     expected: "recurring",
   },
 
-  // --- planned investment --------------------------------------------------
-  // The residual: in the plan, within the cap, and not on a schedule. It is
-  // not "outside plan or over cap", so by the PRD's own definitions it is not
-  // unrecognized; it is not on a schedule, so it is not recurring. See the
-  // module comment in src/requests/tier/index.ts.
+  // --- not on a schedule, so not auto-approvable ---------------------------
+  // Nothing pre-approved these, so there is no basis to move money without a
+  // person. They are not "outside plan or over cap" either — they are simply
+  // requests this classifier cannot positively categorise, and unrecognized
+  // is where anything it cannot categorise belongs. See the module comment.
   {
     name: "in plan, within cap, no rule, zero spend to date",
     input: build({ amount: usd(10_00n), spendToDate: usd(0n), cap: usd(100_00n) }),
-    expected: "planned_investment",
+    expected: "unrecognized",
   },
   {
     name: "in plan, spend to date plus amount exactly at the cap, no rule",
     input: build({ amount: usd(10_00n), spendToDate: usd(90_00n), cap: usd(100_00n) }),
-    expected: "planned_investment",
+    expected: "unrecognized",
   },
   {
     name: "in plan, uncapped category, no rule",
     input: build({ cap: null, amount: usd(5_000_00n) }),
-    expected: "planned_investment",
+    expected: "unrecognized",
   },
 
   // --- unrecognized --------------------------------------------------------
@@ -214,26 +219,151 @@ describe("classify", () => {
     });
   }
 
-  it("covers every declared tier", () => {
+  it("covers every reachable tier", () => {
     // Without this, dropping the last case for a tier leaves the suite green
-    // and that tier untested.
-    expect(new Set(CASES.map((c) => c.expected))).toEqual(new Set(TIERS));
+    // and that tier untested. `planned_investment` is excluded deliberately:
+    // it is unreachable, which the next block proves rather than assumes.
+    expect(new Set(CASES.map((c) => c.expected))).toEqual(
+      new Set(TIERS.filter((t) => t !== "planned_investment")),
+    );
   });
 });
 
-describe("classify boundaries at the largest amounts", () => {
-  // Beyond 2^53: if any comparison on this path went through a double, these
-  // two would be indistinguishable and both would classify the same way.
-  const cap = usd(9_007_199_254_740_993n);
+describe("classify boundaries past 2^53", () => {
+  // 2^53 and 2^53 + 1 are distinct bigints that collapse onto the *same*
+  // double. Any comparison on this path that went through a number would call
+  // them equal, so "exactly at the limit" and "one minor unit over" would
+  // classify the same way. These four cases are the only reason that is not
+  // silently true. (9007199254740993 and ...994 do not work: they survive the
+  // round trip as distinct doubles and prove nothing.)
+  const TWO_53 = usd(9_007_199_254_740_992n);
+  const ONE_OVER = usd(9_007_199_254_740_993n);
 
-  it("treats exactly at the cap as within it", () => {
-    expect(classify(build({ amount: cap, spendToDate: usd(0n), cap }))).toBe("planned_investment");
+  describe("against the cap", () => {
+    // Generous enough that the rule is not what decides these.
+    const rule = activeRule(usd(9_007_199_254_740_999n));
+
+    it("treats exactly the cap as within it", () => {
+      expect(classify(build({ amount: TWO_53, spendToDate: usd(0n), cap: TWO_53, rule }))).toBe(
+        "recurring",
+      );
+    });
+
+    it("treats one minor unit over the cap as over it", () => {
+      expect(classify(build({ amount: ONE_OVER, spendToDate: usd(0n), cap: TWO_53, rule }))).toBe(
+        "unrecognized",
+      );
+    });
   });
 
-  it("treats one minor unit over the cap as over it", () => {
+  describe("against the rule's approved amount", () => {
+    it("treats exactly the approved amount as within parameters", () => {
+      expect(classify(build({ amount: TWO_53, cap: null, rule: activeRule(TWO_53) }))).toBe(
+        "recurring",
+      );
+    });
+
+    it("treats one minor unit over the approved amount as over it", () => {
+      expect(classify(build({ amount: ONE_OVER, cap: null, rule: activeRule(TWO_53) }))).toBe(
+        "unrecognized",
+      );
+    });
+  });
+
+  it("adds the spend to date without losing a minor unit", () => {
+    // The sum crosses 2^53 even though neither side does: as doubles the
+    // addition would round back onto the cap and call this within it.
+    const cap = usd(9_007_199_254_740_992n);
+    const spendToDate = usd(9_007_199_254_740_991n);
+    const rule = activeRule(usd(10n));
+    expect(classify(build({ amount: usd(2n), spendToDate, cap, rule }))).toBe("unrecognized");
+    expect(classify(build({ amount: usd(1n), spendToDate, cap, rule }))).toBe("recurring");
+  });
+});
+
+describe("planned_investment is declared but unreachable", () => {
+  /**
+   * The CTO's call on this PR: the PRD defines the tier as milestone-gated,
+   * there are no milestones in the data model, so the honest state of the
+   * system is that it cannot be detected. It must not be reached by
+   * elimination — that would hand every request the other definitions do not
+   * claim the appearance of a pre-agreed one.
+   *
+   * Two tests, because they fail on different days. The sweep proves nothing
+   * in today's input space produces it. The source check is the tripwire: the
+   * moment someone teaches the classifier to return it, this fails and the
+   * decision gets made on purpose.
+   */
+
+  it("is never produced by any combination of the current inputs", () => {
+    const amounts = [usd(0n), usd(1n), usd(10_00n), usd(10_01n), usd(5_000_00n)];
+    const caps: (Money | null)[] = [null, usd(0n), usd(9_99n), usd(10_00n), usd(10_01n)];
+    const spends = [usd(0n), usd(1n), usd(90_00n)];
+    const ruleAmounts = [usd(1n), usd(10_00n), usd(10_01n)];
+    const statuses: RecurringRuleSnapshot["status"][] = ["active", "paused", "cancelled"];
+
+    const rules: (RecurringRuleSnapshot | null)[] = [null];
+    for (const amount of ruleAmounts) {
+      for (const status of statuses) rules.push({ categoryId: CATEGORY, amount, status });
+    }
+
+    const seen = new Set<Tier>();
+    let combinations = 0;
+
+    for (const amount of amounts) {
+      for (const cap of caps) {
+        for (const spendToDate of spends) {
+          for (const rule of rules) {
+            for (const isEmergency of [false, true]) {
+              for (const shape of [
+                "in-plan",
+                "other-category",
+                "no-category",
+                "no-plan",
+              ] as const) {
+                combinations += 1;
+                seen.add(
+                  classify(
+                    build({
+                      amount,
+                      cap,
+                      spendToDate,
+                      rule,
+                      isEmergency,
+                      noPlan: shape === "no-plan",
+                      ...(shape === "other-category" ? { planCategoryId: ELSEWHERE } : {}),
+                      ...(shape === "no-category" ? { categoryId: null } : {}),
+                    }),
+                  ),
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(combinations).toBeGreaterThan(1_000);
+    expect(seen).toEqual(new Set<Tier>(["recurring", "emergency", "unrecognized"]));
+  });
+
+  it("is not returned anywhere in the classifier's source", () => {
+    // The sweep only covers inputs that exist today. A milestone input added
+    // later would not appear in it, so the tier could start being produced
+    // with the sweep still green. This does not depend on the input space.
+    const source = readFileSync(
+      fileURLToPath(new URL("../src/requests/tier/index.ts", import.meta.url)),
+      "utf8",
+    );
+    const returns = source.split("\n").filter((line) => /return\s+"planned_investment"/.test(line));
+
     expect(
-      classify(build({ amount: usd(9_007_199_254_740_994n), spendToDate: usd(0n), cap })),
-    ).toBe("unrecognized");
+      returns,
+      "The classifier now returns planned_investment. The PRD defines it as " +
+        "milestone-gated; if milestones exist, decide deliberately how a request " +
+        "becomes one, add the boundary cases to the table above, and replace both " +
+        "of these tests with assertions about the new rule.",
+    ).toEqual([]);
   });
 });
 

@@ -112,7 +112,9 @@ describe("submitting a request", () => {
     });
 
     const read = await readRequest(db, submitted.id);
-    expect(read.tier).toBe("planned_investment");
+    // Nothing pre-approved it, so there is no basis to move money without a
+    // person: unrecognized, which routes to manual approval.
+    expect(read.tier).toBe("unrecognized");
     expect(read.tier).toBe(submitted.tier);
     expect(read.status).toBe("pending");
     expect(read.amount).toEqual(usd(50_00n));
@@ -176,10 +178,12 @@ describe("submitting a request", () => {
   });
 
   it("counts the spend to date against the cap, not just the amount asked for", async () => {
-    // The amount alone is well inside the cap. What puts it over is what has
-    // already been spent, so this is the only case that proves the spend to
-    // date reaches the classifier at all.
+    // Same amount, same active rule, same cap. The only difference is what
+    // has already been spent, so this is what proves the spend to date
+    // reaches the classifier at all.
     const f = await aRelationshipWithPlan(usd(100_00n));
+    const rule = { categoryId: f.categoryId, amount: usd(10_00n), status: "active" } as const;
+
     const overByHistory = await submitRequest(db, {
       relationshipId: f.relationshipId,
       requestedBy: f.recipientId,
@@ -188,6 +192,7 @@ describe("submitting a request", () => {
       description: "Renta, otra vez",
       channelOfOrigin: "whatsapp",
       spendToDate: usd(95_00n),
+      recurringRule: rule,
     });
     expect(overByHistory.tier).toBe("unrecognized");
 
@@ -199,8 +204,9 @@ describe("submitting a request", () => {
       description: "Renta, primera del mes",
       channelOfOrigin: "whatsapp",
       spendToDate: usd(0n),
+      recurringRule: rule,
     });
-    expect(sameAmountNoHistory.tier).toBe("planned_investment");
+    expect(sameAmountNoHistory.tier).toBe("recurring");
   });
 
   it("classifies a request inside an active recurring rule as recurring", async () => {
