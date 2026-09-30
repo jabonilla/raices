@@ -37,10 +37,14 @@ export function fullHoursRemaining(expiresAtISO: string, nowMs: number = Date.no
  * Numeric date without Intl: Hermes' Intl support is unreliable (issue #12),
  * and a DD/MM/YYYY numeral string is unambiguous for the es locale. Padded
  * so 5/3/2026 never renders.
+ *
+ * Uses UTC methods: the ISO input is in UTC, and local-timezone methods
+ * would show different dates in different timezones (K2.33: caused
+ * non-deterministic snapshots).
  */
 export function shortDate(iso: string): string {
   const d = new Date(iso);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  return `${day}/${month}/${String(d.getFullYear())}`;
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${day}/${month}/${String(d.getUTCFullYear())}`;
 }
