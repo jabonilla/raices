@@ -28,7 +28,9 @@ export default defineConfig({
           name: "api",
           root: "./apps/api",
           environment: "node",
-          include: ["test/**/*.test.ts"],
+          // K3's identity/http tests live alongside the source (src/**/*.test.ts),
+          // not in test/. Include both so CI picks them up.
+          include: ["test/**/*.test.ts", "src/**/*.test.ts"],
           // Starting a Postgres 16 container (and pulling it the first time)
           // is well over Vitest's 5s default.
           testTimeout: 180_000,
