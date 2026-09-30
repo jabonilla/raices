@@ -17,6 +17,7 @@ export {
   INVITATION_WINDOW_DAYS,
   InvitationExpiredError,
   RelationshipAlreadyExistsError,
+  StaleRelationshipStateError,
   activate,
   invitationExpiresAt,
   invite,

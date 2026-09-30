@@ -1,9 +1,18 @@
 import { sql, type Kysely } from "kysely";
 
-import { transition, type Actor, type Channel } from "../audit/index.js";
+import {
+  UndeclaredTransitionError,
+  transitionWithin,
+  type Actor,
+  type Channel,
+} from "../audit/index.js";
 import type { Database } from "../db/schema.js";
+import { withSerializableTx } from "../db/serializable.js";
 import { relationshipMachine } from "./machine.js";
 import type { RelationshipStatus } from "./schema.js";
+
+/** The entity type the relationship machine is declared with. */
+const machineEntityType = "relationship";
 
 /** Must match `relationship_invitation_window()` in 0004. */
 export const INVITATION_WINDOW_DAYS = 14;
@@ -136,7 +145,37 @@ interface StatusChangeInput {
   readonly channel?: Channel;
 }
 
-/** Read the current status inside the caller's transaction. */
+/** SQLSTATE raised by the terminal-state guard in 0009. */
+const TERMINATED_IS_TERMINAL = "RL002";
+
+/**
+ * Thrown when the relationship moved underneath this caller.
+ *
+ * Distinct from `UndeclaredTransitionError` because the move was legal when
+ * it was chosen: somebody else simply got there first. The remedy is to read
+ * the relationship again and decide against what it now is.
+ */
+export class StaleRelationshipStateError extends Error {
+  readonly relationshipId: string;
+  readonly expected: RelationshipStatus;
+
+  constructor(relationshipId: string, expected: RelationshipStatus, options?: { cause?: unknown }) {
+    super(
+      `Relationship ${relationshipId} was no longer "${expected}" when the change was applied. ` +
+        `Someone moved it first; re-read it and decide again.`,
+      options,
+    );
+    this.name = "StaleRelationshipStateError";
+    this.relationshipId = relationshipId;
+    this.expected = expected;
+  }
+}
+
+function isTerminatedRevival(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === TERMINATED_IS_TERMINAL;
+}
+
+/** Read the current status. Must be called inside the transaction that writes. */
 async function currentStatus(
   trx: Kysely<Database>,
   relationshipId: string,
@@ -152,11 +191,28 @@ async function currentStatus(
 /**
  * Move a relationship's status, writing the audit row with it.
  *
- * Everything goes through `transition()`, so an undeclared move is refused
- * before anything is written and the audit row commits with the change or not
- * at all. The database independently refuses a status change that arrives any
- * other way (0003's `audit_enforce_transitions`), so this is the only way in
- * rather than merely the intended one.
+ * The read of the current status happens **inside** the transaction that
+ * writes (RED-1, #99). It used to happen before `transition()` opened one,
+ * which meant SERIALIZABLE was guarding a decision made outside its view: an
+ * acceptance could read `invited`, wait while a termination committed, and
+ * then write `active` over it. The audit trigger could not catch it either —
+ * it checks that the destination state was audited, and knows nothing about
+ * whether the source state was still true.
+ *
+ * Three things now have to agree, and each covers what the others cannot:
+ *
+ * 1. The read is inside the transaction, so SERIALIZABLE can see it and a
+ *    concurrent write to the same row becomes a serialization failure that
+ *    `withSerializableTx` replays against a fresh snapshot.
+ * 2. The update is a compare-and-swap on the status we read. Zero rows
+ *    updated means the row moved between the read and the write, and the
+ *    caller is told rather than silently succeeding.
+ * 3. 0009 refuses, in the database, any move out of `terminated`. That one
+ *    holds for writers that never come through this function at all.
+ *
+ * Everything still goes through `transition()`, so an undeclared move is
+ * refused before anything is written and the audit row commits with the
+ * change or not at all.
  */
 async function changeStatus(
   db: Kysely<Database>,
@@ -165,31 +221,46 @@ async function changeStatus(
   action: string,
   extra: (from: RelationshipStatus) => Record<string, unknown> = () => ({}),
 ): Promise<void> {
-  const from = await currentStatus(db, input.relationshipId);
-
   try {
-    await transition(
-      db,
-      relationshipMachine,
-      {
-        entityId: input.relationshipId,
-        from,
-        to,
-        action,
-        actor: input.actor,
-        ...(input.channel === undefined ? {} : { channel: input.channel }),
-      },
-      async (trx) => {
-        await trx
-          .updateTable("relationship")
-          .set({ status: to, ...extra(from) })
-          .where("id", "=", input.relationshipId)
-          .execute();
-      },
-    );
+    await withSerializableTx(db, async (raw) => {
+      const trx = raw as unknown as Kysely<Database>;
+      const from = await currentStatus(trx, input.relationshipId);
+
+      await transitionWithin(
+        raw,
+        relationshipMachine,
+        {
+          entityId: input.relationshipId,
+          from,
+          to,
+          action,
+          actor: input.actor,
+          ...(input.channel === undefined ? {} : { channel: input.channel }),
+        },
+        async (inner) => {
+          const result = await inner
+            .updateTable("relationship")
+            .set({ status: to, ...extra(from) })
+            .where("id", "=", input.relationshipId)
+            // The compare-and-swap. Under SERIALIZABLE a concurrent write
+            // normally surfaces as 40001 before this can miss, so this is the
+            // belt to that braces: it is what still refuses the write if the
+            // read is ever moved back out, or the isolation level changes.
+            .where("status", "=", from)
+            .executeTakeFirst();
+
+          if ((result.numUpdatedRows ?? 0n) === 0n) {
+            throw new StaleRelationshipStateError(input.relationshipId, from);
+          }
+        },
+      );
+    });
   } catch (error) {
     if (isExpiryViolation(error)) {
       throw new InvitationExpiredError(input.relationshipId, { cause: error });
+    }
+    if (isTerminatedRevival(error)) {
+      throw new UndeclaredTransitionError(machineEntityType, "terminated", to, []);
     }
     throw error;
   }
