@@ -386,30 +386,34 @@ describe("PRD invariant 3: a declined request never becomes a transaction", () =
     expect((await readRequest(db, submitted.id)).status).toBe("declined");
   });
 
-  it("has no schema path by which a transaction could point at a request", async () => {
-    // The row count above proves nothing was posted on this path today. This
-    // proves nothing *could* be: after 0006 there is no foreign key in either
-    // direction between the ledger tables and `request`, so no transaction
-    // can be attributed to a declined request at all.
-    //
-    // P2.5 introduces the transaction record and the link between the two.
-    // When it does, this test fails — deliberately. At that point the
-    // invariant has somewhere real to live (a constraint that a transaction's
-    // request is not declined) and this assertion must be replaced by one
-    // against that constraint, not deleted.
-    const { rows } = await sql<{ constraint_name: string; detail: string }>`
-      select c.conname as constraint_name,
-             conrelid::regclass::text || ' -> ' || confrelid::regclass::text as detail
-        from pg_constraint c
-       where c.contype = 'f'
-         and (
-           (conrelid = 'request'::regclass
-              and confrelid in ('ledger_transaction'::regclass, 'ledger_entry'::regclass))
-           or (confrelid = 'request'::regclass
-              and conrelid in ('ledger_transaction'::regclass, 'ledger_entry'::regclass))
-         )
-    `.execute(db);
+  it("refuses a transaction for a declined request, at the database level", async () => {
+    // Promised in P2.4 and delivered here. Before 0007 there was no link in
+    // either direction between a request and a transaction, so the invariant
+    // had nowhere to live and this test asserted the absence of one. 0007
+    // adds `transaction.request_id`, which makes it enforceable, so the
+    // assertion is now against the constraint rather than against the gap.
+    const f = await aRelationshipWithPlan();
+    const submitted = await submitRequest(db, {
+      relationshipId: f.relationshipId,
+      requestedBy: f.recipientId,
+      amount: usd(400_00n),
+      categoryId: f.categoryId,
+      description: "Un gasto grande",
+      channelOfOrigin: "whatsapp",
+      spendToDate: usd(0n),
+    });
+    await declineRequest(db, {
+      requestId: submitted.id,
+      actor: { kind: "user", id: f.senderId },
+      reason: "No este mes",
+    });
 
-    expect(rows.map((r) => r.detail)).toEqual([]);
+    await expect(
+      sql`
+        insert into transaction (request_id, relationship_id, amount_minor, amount_currency,
+                                 approved_by)
+        values (${submitted.id}, ${f.relationshipId}, 40000, 'USD', ${f.senderId})
+      `.execute(db),
+    ).rejects.toMatchObject({ code: "TX002" });
   });
 });
