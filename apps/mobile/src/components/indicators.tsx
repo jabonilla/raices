@@ -26,7 +26,7 @@ export function StatusDot({ tone, pulse = false }: StatusDotProps): JSX.Element 
     <View
       accessibilityRole="text"
       accessibilityLabel={
-        tone === "emergency" ? t("indicators.statusDotUrgent") : t("indicators.statusDotConnected")
+        tone === "emergency" ? t("statusBadge.emergency") : t("indicators.statusDotConnected")
       }
       style={[
         styles.dot,
