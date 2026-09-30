@@ -10,6 +10,7 @@ export {
   defineStateMachine,
   isDeclared,
   transition,
+  transitionWithin,
   type Actor,
   type StateMachine,
   type TransitionInput,

@@ -17,6 +17,8 @@ const AUDIT_REQUIRED = "AU002";
 const CHECK_VIOLATION = "23514";
 const NOT_NULL_VIOLATION = "23502";
 const FOREIGN_KEY_VIOLATION = "23503";
+/** Postgres refuses TRUNCATE on a table another table references. */
+const FOREIGN_KEY_TRUNCATE = "0A000";
 const INSUFFICIENT_PRIVILEGE = "42501";
 
 interface PostgresError extends Error {
@@ -98,8 +100,8 @@ async function seedFixture(): Promise<Seed> {
       [relationshipId],
     );
     const version = await client.query<{ id: string }>(
-      `insert into plan_version (plan_id, version_number, created_by)
-       values ($1, 1, $2) returning id`,
+      `insert into plan_version (plan_id, version_number, created_by, cap_timezone)
+       values ($1, 1, $2, 'America/Guatemala') returning id`,
       [plan.rows[0]?.id, senderId],
     );
     const category = await client.query<{ id: string }>(
@@ -479,6 +481,18 @@ describe("grants", () => {
   });
 
   it("does not let even the owner truncate requests", async () => {
-    expect(await failureCode("truncate request")).toBe(FROZEN_VIOLATION);
+    // Since 0007 added `transaction.request_id`, a plain TRUNCATE is refused
+    // by the foreign key (0A000) before the trigger can fire. The guarantee
+    // is unchanged and the trigger is not redundant — CASCADE gets past the
+    // foreign key, and the next case shows what stops it there.
+    expect(await failureCode("truncate request")).toBe(FOREIGN_KEY_TRUNCATE);
+  });
+
+  it("does not let even the owner truncate requests with cascade", async () => {
+    // CASCADE is how somebody gets around the foreign key. The before-truncate
+    // triggers on the affected tables are what actually refuse it, so this is
+    // the case that proves the guard still does work.
+    const code = await failureCode("truncate request cascade");
+    expect([FROZEN_VIOLATION, "TX003"]).toContain(code);
   });
 });

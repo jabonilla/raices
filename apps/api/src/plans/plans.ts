@@ -39,7 +39,38 @@ export interface PlanVersionRecord {
   readonly planId: string;
   readonly versionNumber: number;
   readonly createdBy: string;
+  /** The IANA zone the cap window is measured in (issue #92). */
+  readonly capTimezone: string;
   readonly categories: readonly CategoryRecord[];
+}
+
+/** SQLSTATE raised by the timezone guard in 0008. */
+const INVALID_TIMEZONE = "TZ001";
+
+/**
+ * Thrown when a plan version names something that is not an IANA zone.
+ *
+ * Distinct from a generic constraint error because the remedy is specific:
+ * a zone name, not a fixed offset. "-06:00" is Guatemala today and wrong the
+ * moment any rule changes; "America/Guatemala" carries its own history, so a
+ * window computed over a past month stays correct.
+ */
+export class InvalidCapTimezoneError extends Error {
+  readonly capTimezone: string;
+
+  constructor(capTimezone: string, options?: { cause?: unknown }) {
+    super(
+      `${JSON.stringify(capTimezone)} is not an IANA timezone name. Use a zone such as ` +
+        `"America/Guatemala" or "America/New_York", never a fixed offset.`,
+      options,
+    );
+    this.name = "InvalidCapTimezoneError";
+    this.capTimezone = capTimezone;
+  }
+}
+
+function isInvalidTimezone(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === INVALID_TIMEZONE;
 }
 
 export interface PlanRecord {
@@ -110,7 +141,31 @@ async function insertCategories(
  */
 async function appendVersion<DB extends PlanDatabase>(
   db: Kysely<DB>,
-  input: { planId: string; createdBy: string; categories: readonly CategoryInput[] },
+  input: {
+    planId: string;
+    createdBy: string;
+    capTimezone: string;
+    categories: readonly CategoryInput[];
+  },
+): Promise<CreatedVersion> {
+  try {
+    return await appendVersionUnchecked(db, input);
+  } catch (error) {
+    if (isInvalidTimezone(error)) {
+      throw new InvalidCapTimezoneError(input.capTimezone, { cause: error });
+    }
+    throw error;
+  }
+}
+
+async function appendVersionUnchecked<DB extends PlanDatabase>(
+  db: Kysely<DB>,
+  input: {
+    planId: string;
+    createdBy: string;
+    capTimezone: string;
+    categories: readonly CategoryInput[];
+  },
 ): Promise<CreatedVersion> {
   return withSerializableTx(db, async (raw) => {
     const trx = raw as unknown as Transaction<PlanDatabase>;
@@ -127,6 +182,7 @@ async function appendVersion<DB extends PlanDatabase>(
         plan_id: input.planId,
         version_number: versionNumber,
         created_by: input.createdBy,
+        cap_timezone: input.capTimezone,
       })
       .returning("id")
       .executeTakeFirstOrThrow();
@@ -146,7 +202,7 @@ async function appendVersion<DB extends PlanDatabase>(
 /** Create a plan for a relationship, with version 1 and the system categories. */
 export async function createPlan<DB extends PlanDatabase>(
   db: Kysely<DB>,
-  input: { relationshipId: string; createdBy: string },
+  input: { relationshipId: string; createdBy: string; capTimezone: string },
 ): Promise<CreatedVersion> {
   const planId = await withSerializableTx(db, async (raw) => {
     const trx = raw as unknown as Transaction<PlanDatabase>;
@@ -163,6 +219,7 @@ export async function createPlan<DB extends PlanDatabase>(
   return appendVersion(db, {
     planId,
     createdBy: input.createdBy,
+    capTimezone: input.capTimezone,
     categories: SYSTEM_CATEGORY_NAMES.map((name) => ({
       name,
       icon: SYSTEM_CATEGORY_ICONS[name],
@@ -181,11 +238,17 @@ export async function createPlan<DB extends PlanDatabase>(
  */
 export async function editPlan<DB extends PlanDatabase>(
   db: Kysely<DB>,
-  input: { planId: string; editedBy: string; categories: readonly CategoryInput[] },
+  input: {
+    planId: string;
+    editedBy: string;
+    capTimezone: string;
+    categories: readonly CategoryInput[];
+  },
 ): Promise<CreatedVersion> {
   return appendVersion(db, {
     planId: input.planId,
     createdBy: input.editedBy,
+    capTimezone: input.capTimezone,
     categories: input.categories,
   });
 }
@@ -225,7 +288,7 @@ export async function readVersion<DB extends PlanDatabase>(
 
   const version = await trx
     .selectFrom("plan_version")
-    .select(["id", "plan_id", "version_number", "created_by"])
+    .select(["id", "plan_id", "version_number", "created_by", "cap_timezone"])
     .where("id", "=", versionId)
     .executeTakeFirstOrThrow();
 
@@ -241,6 +304,7 @@ export async function readVersion<DB extends PlanDatabase>(
     planId: version.plan_id,
     versionNumber: version.version_number,
     createdBy: version.created_by,
+    capTimezone: version.cap_timezone,
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
