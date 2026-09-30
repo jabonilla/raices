@@ -1,5 +1,5 @@
 import { money, type Money } from "@raices/money";
-import { sql, type Kysely } from "kysely";
+import { Kysely, PostgresDialect, sql } from "kysely";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -273,6 +273,80 @@ describe("RED-1: terminated is terminal", () => {
       await client.end();
     }
     expect(code).toBe(TERMINATED_IS_TERMINAL);
+  });
+
+  it("reads the current status inside the transaction that writes it", async () => {
+    // #99's first requirement, asserted directly rather than through a race.
+    //
+    // Mutation testing showed why this needs its own test: with the database
+    // guard in place, K3's regression passes even with this read moved back
+    // outside, so the race alone does not hold the fix in place. What the
+    // in-transaction read buys is that SERIALIZABLE can see the decision --
+    // a concurrent write becomes a serialization failure that is retried
+    // against a fresh snapshot, instead of a stale decision that has to be
+    // refused after the fact.
+    const sender = await findOrCreateUserByPhone(db, { phone: aPhone(), role: "sender" });
+    const recipient = await findOrCreateUserByPhone(db, { phone: aPhone(), role: "recipient" });
+    const rel = await invite(db, { senderId: sender.id, recipientId: recipient.id });
+
+    // Per connection, not pool-wide. Recording every statement in one list
+    // cannot tell "read inside the transaction" from "read on a second
+    // connection while a transaction happens to be open elsewhere" -- the
+    // first version of this test made exactly that mistake and a mutation
+    // moving the read back out survived it.
+    const perConnection = new Map<number, string[]>();
+    let nextConnection = 0;
+    const pool = new pg.Pool({ connectionString: pgx.connectionString });
+    pool.on("connect", (client) => {
+      const id = nextConnection;
+      nextConnection += 1;
+      perConnection.set(id, []);
+      const original = client.query.bind(client) as (...args: unknown[]) => Promise<unknown>;
+      Object.defineProperty(client, "query", {
+        configurable: true,
+        value: async (...args: unknown[]) => {
+          const first = args[0];
+          const text =
+            typeof first === "string"
+              ? first
+              : typeof (first as { text?: string } | undefined)?.text === "string"
+                ? (first as { text: string }).text
+                : "";
+          if (text !== "") perConnection.get(id)?.push(text);
+          return original(...args);
+        },
+      });
+    });
+    const watched = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
+
+    try {
+      await activate(watched, {
+        relationshipId: rel.id,
+        actor: { kind: "user", id: recipient.id },
+      });
+    } finally {
+      await watched.destroy();
+    }
+
+    const writing = [...perConnection.values()].find((qs) =>
+      qs.some((q) => /update "relationship"/.test(q)),
+    );
+    expect(writing, "some connection wrote the relationship").toBeDefined();
+    if (writing === undefined) return;
+
+    const at = (re: RegExp) => writing.findIndex((q) => re.test(q));
+    const beginAt = at(/^\s*(begin|start transaction)/i);
+    const readAt = at(/select "status" from "relationship"/);
+    const updateAt = at(/update "relationship"/);
+    const commitAt = at(/^\s*commit/i);
+
+    // All four on the one connection that did the write, in this order.
+    expect(beginAt, "the writing connection opened a transaction").toBeGreaterThanOrEqual(0);
+    expect(readAt, "the status was read on that same connection").toBeGreaterThanOrEqual(0);
+    expect(commitAt, "the transaction committed").toBeGreaterThanOrEqual(0);
+    expect(beginAt).toBeLessThan(readAt);
+    expect(readAt).toBeLessThan(updateAt);
+    expect(updateAt).toBeLessThan(commitAt);
   });
 
   it("still allows the moves that are not revivals", async () => {

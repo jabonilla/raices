@@ -242,13 +242,24 @@ async function changeStatus(
             .updateTable("relationship")
             .set({ status: to, ...extra(from) })
             .where("id", "=", input.relationshipId)
-            // The compare-and-swap. Under SERIALIZABLE a concurrent write
-            // normally surfaces as 40001 before this can miss, so this is the
-            // belt to that braces: it is what still refuses the write if the
-            // read is ever moved back out, or the isolation level changes.
+            // The compare-and-swap #99 asks for.
+            //
+            // Measured note: with the read inside this transaction and
+            // SERIALIZABLE isolation, it cannot currently miss. A concurrent
+            // write to this row raises 40001 on the UPDATE before the WHERE
+            // can match zero rows, and withSerializableTx replays against a
+            // fresh snapshot. Mutations removing this clause, and the
+            // zero-row check below, are killed by no test in the suite.
+            //
+            // It is kept because it is the layer that still holds if either
+            // of those two conditions stops being true -- the read moving
+            // back out is exactly the defect being fixed here, and it is a
+            // one-line change for someone to make again by accident.
             .where("status", "=", from)
             .executeTakeFirst();
 
+          // Unreachable today for the reason above; see the PR for the
+          // mutation result rather than assuming this branch is exercised.
           if ((result.numUpdatedRows ?? 0n) === 0n) {
             throw new StaleRelationshipStateError(input.relationshipId, from);
           }
