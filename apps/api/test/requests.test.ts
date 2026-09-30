@@ -7,6 +7,7 @@ import { createPlan, editPlan, readVersion } from "../src/plans/index.js";
 import { findOrCreateUserByPhone, invite } from "../src/relationships/index.js";
 import {
   DeclineReasonRequiredError,
+  DeclineReasonTooLongError,
   approveRequest,
   declineRequest,
   expireRequest,
@@ -174,6 +175,34 @@ describe("submitting a request", () => {
     expect(read.resolvedAt).toBeNull();
   });
 
+  it("counts the spend to date against the cap, not just the amount asked for", async () => {
+    // The amount alone is well inside the cap. What puts it over is what has
+    // already been spent, so this is the only case that proves the spend to
+    // date reaches the classifier at all.
+    const f = await aRelationshipWithPlan(usd(100_00n));
+    const overByHistory = await submitRequest(db, {
+      relationshipId: f.relationshipId,
+      requestedBy: f.recipientId,
+      amount: usd(10_00n),
+      categoryId: f.categoryId,
+      description: "Renta, otra vez",
+      channelOfOrigin: "whatsapp",
+      spendToDate: usd(95_00n),
+    });
+    expect(overByHistory.tier).toBe("unrecognized");
+
+    const sameAmountNoHistory = await submitRequest(db, {
+      relationshipId: f.relationshipId,
+      requestedBy: f.recipientId,
+      amount: usd(10_00n),
+      categoryId: f.categoryId,
+      description: "Renta, primera del mes",
+      channelOfOrigin: "whatsapp",
+      spendToDate: usd(0n),
+    });
+    expect(sameAmountNoHistory.tier).toBe("planned_investment");
+  });
+
   it("classifies a request inside an active recurring rule as recurring", async () => {
     const f = await aRelationshipWithPlan(usd(100_00n));
     const submitted = await submitRequest(db, {
@@ -279,15 +308,25 @@ describe("resolving a request", () => {
 
   it("refuses a decline reason over 200 characters", async () => {
     const { id, f } = await aPendingRequest();
+    // The specific error, not merely "something threw": the database's own
+    // constraint would also reject this, so asserting only that it throws
+    // would pass with the service's check removed entirely.
     await expect(
       declineRequest(db, {
         requestId: id,
         actor: { kind: "user", id: f.senderId },
         reason: "a".repeat(201),
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(DeclineReasonTooLongError);
 
     expect((await readRequest(db, id)).status).toBe("pending");
+  });
+
+  it("accepts a decline reason of exactly 200 characters", async () => {
+    const { id, f } = await aPendingRequest();
+    const reason = "a".repeat(200);
+    await declineRequest(db, { requestId: id, actor: { kind: "user", id: f.senderId }, reason });
+    expect((await readRequest(db, id)).declineReason).toBe(reason);
   });
 
   it("expires a pending request with a system actor and no resolver", async () => {
