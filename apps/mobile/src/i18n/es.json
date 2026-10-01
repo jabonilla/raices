@@ -57,6 +57,8 @@
   },
   "assistant": {
     "inputPlaceholder": "Escribe tu pregunta…",
+    "languageEn": "English",
+    "languageEs": "Español",
     "languageToggle": "Español / English",
     "scope": "Te explico lo que pasa con tu dinero. Moverlo siempre lo decides tú.",
     "states": {
@@ -70,8 +72,10 @@
     "sendNow": "Enviar ahora"
   },
   "goal": {
+    "back": "Atrás",
     "remaining": "Faltan {{remaining}} para los {{total}}",
     "savedSoFar": "Ahorrado hasta hoy",
+    "stages": "Etapas",
     "states": {
       "emptyAction": "Crear mi meta",
       "emptyBody": "Ponle nombre a lo que estás construyendo.",

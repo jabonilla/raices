@@ -56,12 +56,35 @@ export function AssistantScreen({
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <View style={styles.dot} />
+        <View style={styles.headerRow}>
           <Text style={styles.title}>{t("assistant.title")}</Text>
+          <View
+            style={styles.langToggle}
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t("assistant.languageToggle")}
+          >
+            <View
+              accessibilityRole="radio"
+              accessibilityState={{ selected: true }}
+              style={[styles.langOption, styles.langOptionActive]}
+            >
+              <Text style={[styles.langText, styles.langTextActive]}>
+                {t("assistant.languageEs")}
+              </Text>
+            </View>
+            <View
+              accessibilityRole="radio"
+              accessibilityState={{ selected: false }}
+              style={styles.langOption}
+            >
+              <Text style={styles.langText}>{t("assistant.languageEn")}</Text>
+            </View>
+          </View>
         </View>
-        <Text style={styles.language}>{t("assistant.languageToggle")}</Text>
-        <Text style={styles.scope}>{t("assistant.scope")}</Text>
+        <View style={styles.scopeRow}>
+          <View aria-hidden style={styles.dot} />
+          <Text style={styles.scope}>{t("assistant.scope")}</Text>
+        </View>
 
         {data.messages.map((message, index) =>
           message.from === "ai" ? (
@@ -72,10 +95,14 @@ export function AssistantScreen({
         )}
 
         <Card style={styles.refCard}>
-          <Text style={styles.refCategory}>{data.refCard.categoryText}</Text>
-          <Text style={styles.refAmount}>{data.refCard.amountText}</Text>
-          <Text style={styles.refTime}>{data.refCard.timeText}</Text>
-          <Text style={styles.refLink}>{data.refCard.linkText}</Text>
+          <View style={styles.refTop}>
+            <Text style={styles.refCategory}>{data.refCard.categoryText}</Text>
+            <Text style={styles.refTime}>{data.refCard.timeText}</Text>
+          </View>
+          <View style={styles.refBottom}>
+            <Text style={styles.refAmount}>{data.refCard.amountText}</Text>
+            <Text style={styles.refLink}>{data.refCard.linkText}</Text>
+          </View>
         </Card>
       </ScrollView>
 
@@ -128,17 +155,11 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.s4,
     paddingBottom: tokens.spacing.s4,
   },
-  header: {
+  headerRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: tokens.radius.full,
-    backgroundColor: tokens.color.tierra,
-    marginRight: tokens.spacing.s2,
-    opacity: 0.6,
+    marginBottom: tokens.spacing.s3,
   },
   title: {
     fontSize: tokens.type.heading1.size,
@@ -147,22 +168,58 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.display,
     color: tokens.color.textPrimary,
   },
-  language: {
+  langToggle: {
+    flexDirection: "row",
+    backgroundColor: tokens.color.surface2,
+    borderRadius: tokens.radius.full,
+    padding: 2,
+  },
+  langOption: {
+    borderRadius: tokens.radius.full,
+    paddingHorizontal: tokens.spacing.s3,
+    paddingVertical: tokens.spacing.s2,
+  },
+  langOptionActive: {
+    backgroundColor: tokens.color.surface1,
+    // iOS-style segmented shadow; android renders elevation.
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  langText: {
     fontSize: tokens.type.bodySmall.size,
     fontWeight: tokens.type.bodySmall.weight,
     lineHeight: tokens.type.bodySmall.lineHeight,
     fontFamily: tokens.font.body,
-    color: tokens.color.tierra,
-    marginTop: tokens.spacing.s1,
+    color: tokens.color.textSecondary,
+  },
+  langTextActive: {
+    fontWeight: tokens.type.label.weight,
+    color: tokens.color.textPrimary,
+  },
+  scopeRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: tokens.spacing.s4,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: tokens.radius.full,
+    backgroundColor: tokens.color.tierra,
+    marginRight: tokens.spacing.s2,
+    marginTop: 6,
+    opacity: 0.6,
   },
   scope: {
+    flex: 1,
     fontSize: tokens.type.body.size,
     fontWeight: tokens.type.body.weight,
     lineHeight: tokens.type.body.lineHeight,
     fontFamily: tokens.font.body,
     color: tokens.color.textSecondary,
-    marginTop: tokens.spacing.s3,
-    marginBottom: tokens.spacing.s4,
   },
   aiBubble: {
     backgroundColor: tokens.color.tierraPale,
@@ -200,6 +257,19 @@ const styles = StyleSheet.create({
   },
   refCard: {
     marginBottom: tokens.spacing.s3,
+    borderLeftWidth: 3,
+    borderLeftColor: tokens.color.flagged,
+  },
+  refTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: tokens.spacing.s1,
+  },
+  refBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
   },
   refCategory: {
     fontSize: tokens.type.label.size,

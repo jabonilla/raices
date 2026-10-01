@@ -57,6 +57,8 @@
   },
   "assistant": {
     "inputPlaceholder": "Type your question…",
+    "languageEn": "English",
+    "languageEs": "Spanish",
     "languageToggle": "Español / English",
     "scope": "I explain what's happening with your money. Moving it is always your call.",
     "states": {
@@ -70,8 +72,10 @@
     "sendNow": "Send now"
   },
   "goal": {
+    "back": "Back",
     "remaining": "{{remaining}} to go for the {{total}}",
     "savedSoFar": "Saved so far",
+    "stages": "Stages",
     "states": {
       "emptyAction": "Create my goal",
       "emptyBody": "Give a name to what you're building.",
