@@ -9,9 +9,13 @@ import { useScreenData } from "../data/ScreenDataContext";
 import { tokens } from "../theme/tokens";
 
 /**
- * 02 · Aprobación — bottom sheet shell. The highest-frequency critical
- * interaction: must complete in under 60 seconds, no scrolling for the core
- * decision. "Ahorita no" is a text link, never a button.
+ * 02 · Aprobación — Figma "Raíces — MVP v0" (Tierra theme, 2026-09-30).
+ * Bottom sheet: the highest-frequency critical interaction must complete in
+ * under 60 seconds, no scrolling for the core decision. "Ahorita no" is a
+ * text link, never a button.
+ *
+ * Recipient row carries the avatar initial; the plan match renders as a
+ * green assurance box, not plain text.
  *
  * `screenState` renders the loading / empty / error / offline shells (K2.21).
  * The empty state ("nothing waiting") carries no action — one path forward
@@ -59,16 +63,30 @@ export function ApprovalScreen({
   }
   const data = screenData.getApprovalData();
   const amount = data.amountText;
+  // Avatar initial is presentational, derived from the record name.
+  const initial = data.recipientName.charAt(0).toUpperCase();
   return (
     <View style={styles.sheet}>
       <View style={styles.handle} />
-      <Text style={styles.recipient}>{data.recipientName}</Text>
-      <Text style={styles.relationship}>{data.relationship}</Text>
+
+      <View style={styles.recipientRow}>
+        <View style={styles.avatar}>
+          <Text aria-hidden style={styles.avatarInitial}>
+            {initial}
+          </Text>
+        </View>
+        <View>
+          <Text style={styles.recipient}>{data.recipientName}</Text>
+          <Text style={styles.relationship}>{data.relationship}</Text>
+        </View>
+      </View>
 
       <View style={styles.divider} />
 
       <View style={styles.categoryRow}>
-        <Text style={styles.categoryIcon}>{CATEGORY_ICON}</Text>
+        <Text aria-hidden style={styles.categoryIcon}>
+          {CATEGORY_ICON}
+        </Text>
         <Text style={styles.categoryLabel}>{data.categoryLabel}</Text>
       </View>
       <Text style={styles.purpose}>{data.purpose}</Text>
@@ -76,15 +94,21 @@ export function ApprovalScreen({
 
       <View style={styles.divider} />
 
-      <Text style={styles.planMatch}>{data.planMatchText}</Text>
-      <Text style={styles.planDetail}>
-        {t("approval.planMatchDetail", {
-          available: data.planAvailableText,
-          category: data.categoryLabel,
-        })}
-      </Text>
-
-      <View style={styles.divider} />
+      <View style={styles.planBox}>
+        {/*
+          planMatchText arrives with its own "✓" from the provider (and the
+          test asserts that exact string), so no separate icon here.
+        */}
+        <View style={styles.planText}>
+          <Text style={styles.planMatch}>{data.planMatchText}</Text>
+          <Text style={styles.planDetail}>
+            {t("approval.planMatchDetail", {
+              available: data.planAvailableText,
+              category: data.categoryLabel,
+            })}
+          </Text>
+        </View>
+      </View>
 
       <Button
         variant="primary"
@@ -122,23 +146,41 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.full,
     backgroundColor: tokens.color.borderStrong,
     alignSelf: "center",
-    marginBottom: tokens.spacing.s4,
+    marginBottom: tokens.spacing.s5,
+  },
+  recipientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: tokens.radius.full,
+    backgroundColor: tokens.color.approvedBg,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: tokens.spacing.s3,
+  },
+  avatarInitial: {
+    fontSize: tokens.type.heading2.size,
+    fontWeight: tokens.type.heading2.weight,
+    lineHeight: tokens.type.heading2.lineHeight,
+    fontFamily: tokens.font.display,
+    color: tokens.color.approved,
   },
   recipient: {
-    fontSize: tokens.type.heading1.size,
-    fontWeight: tokens.type.heading1.weight,
-    lineHeight: tokens.type.heading1.lineHeight,
+    fontSize: tokens.type.heading2.size,
+    fontWeight: tokens.type.heading2.weight,
+    lineHeight: tokens.type.heading2.lineHeight,
     fontFamily: tokens.font.display,
     color: tokens.color.textPrimary,
-    textAlign: "center",
   },
   relationship: {
     fontSize: tokens.type.body.size,
     fontWeight: tokens.type.body.weight,
     lineHeight: tokens.type.body.lineHeight,
     fontFamily: tokens.font.body,
-    color: tokens.color.textSecondary,
-    textAlign: "center",
+    color: tokens.color.textMuted,
     marginTop: tokens.spacing.s1,
   },
   divider: {
@@ -149,7 +191,6 @@ const styles = StyleSheet.create({
   categoryRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
   },
   categoryIcon: {
     fontSize: tokens.type.heading2.size,
@@ -163,12 +204,11 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
   },
   purpose: {
-    fontSize: tokens.type.body.size,
-    fontWeight: tokens.type.body.weight,
-    lineHeight: tokens.type.body.lineHeight,
+    fontSize: tokens.type.bodyLarge.size,
+    fontWeight: tokens.type.bodyLarge.weight,
+    lineHeight: tokens.type.bodyLarge.lineHeight,
     fontFamily: tokens.font.body,
-    color: tokens.color.textSecondary,
-    textAlign: "center",
+    color: tokens.color.textPrimary,
     fontStyle: "italic",
     marginTop: tokens.spacing.s2,
   },
@@ -179,8 +219,18 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.display,
     color: tokens.color.roca,
     fontVariant: ["tabular-nums"],
-    textAlign: "center",
     marginTop: tokens.spacing.s3,
+  },
+  planBox: {
+    backgroundColor: tokens.color.approvedBg,
+    borderRadius: tokens.radius.lg,
+    padding: tokens.spacing.s4,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: tokens.spacing.s4,
+  },
+  planText: {
+    flex: 1,
   },
   planMatch: {
     fontSize: tokens.type.body.size,
@@ -188,15 +238,13 @@ const styles = StyleSheet.create({
     lineHeight: tokens.type.body.lineHeight,
     fontFamily: tokens.font.body,
     color: tokens.color.approved,
-    textAlign: "center",
   },
   planDetail: {
     fontSize: tokens.type.bodySmall.size,
     fontWeight: tokens.type.bodySmall.weight,
     lineHeight: tokens.type.bodySmall.lineHeight,
     fontFamily: tokens.font.body,
-    color: tokens.color.textSecondary,
-    textAlign: "center",
+    color: tokens.color.approved,
     marginTop: tokens.spacing.s1,
   },
   approve: {

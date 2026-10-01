@@ -8,6 +8,13 @@ export const tokens = {
     tierra: "#2D4A3E",
     tierraLight: "#3D6355",
     tierraPale: "#EAF2EE",
+    // Figma "Raíces — MVP v0" (2026-09-30): the Tierra header is a deeper
+    // green than the original tierra token; the Aquí/Allá cards sit one
+    // step lighter, and the pending pill / etapa badge are cream.
+    tierraDeep: "#1A3C2E",
+    tierraCard: "#2F5B4A",
+    crema: "#FDF3E1",
+    textMutedInverse: "#A9C3B4",
     oro: "#C4922A",
     oroLight: "#F5E4BF",
     roca: "#1A1A1A",
