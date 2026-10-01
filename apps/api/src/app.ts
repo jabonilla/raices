@@ -10,7 +10,7 @@ import { FakeChannelAdapter } from "@raices/channels";
 import { checkDatabaseReady } from "./health.js";
 import { createPool } from "./db/index.js";
 import { NotFoundError, toApiError } from "./errors.js";
-import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
+import { createRateLimiter, registerRateLimit, registerSecurityHeaders } from "./hardening.js";
 import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
 import { buildOpenApiDocument } from "./openapi.js";
 import { registerTelemetry } from "./telemetry.js";
@@ -126,10 +126,37 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   }
   registerSecurityHeaders(app);
 
-  const checkRateLimit = registerRateLimit(app, {
+  const rateLimitOptions = {
     max: options.rateLimitMax ?? 600,
     windowMs: options.rateLimitWindowMs ?? 60_000,
-  });
+  };
+  const checkRateLimit =
+    options.demoApi === undefined
+      ? registerRateLimit(app, rateLimitOptions)
+      : createRateLimiter({
+          ...rateLimitOptions,
+          keyResolver:
+            options.demoApi.clientIp ??
+            ((request) => request.raw.socket.remoteAddress ?? "unknown"),
+        });
+  if (options.demoApi !== undefined) {
+    app.addHook("onRequest", async (request, reply) => {
+      // Auth and webhooks invoke this limiter in their own route hooks.
+      // Do not consume the same budget twice when the host mounts them.
+      const route = request.routeOptions.url;
+      if (
+        [
+          "/health",
+          "/webhooks/channel",
+          "/auth/otp/request",
+          "/auth/otp/verify",
+          "/auth/session/revoke",
+        ].includes(route ?? "")
+      )
+        return;
+      await checkRateLimit(request, reply);
+    });
+  }
 
   // One span per HTTP request (K2.25). Registered before the other hooks so
   // the span covers the whole request lifecycle.
