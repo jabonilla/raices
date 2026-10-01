@@ -4,9 +4,15 @@ import { z } from "zod";
 import type { Database } from "../db/schema.js";
 import type { IdentityService, IdentityUser } from "../identity/service.js";
 import { NotFoundError, UnauthorizedError } from "../errors.js";
+import { installHttpIdempotency, type HttpIdempotencyOptions } from "./idempotency-http.js";
 
 export type AuthorizationPolicy =
   | { readonly kind: "public" }
+  /**
+   * Provider-authenticated webhook route. The route's signature verifier is
+   * the authentication boundary; this policy must never invoke bearer auth.
+   */
+  | { readonly kind: "signature-verified" }
   | { readonly kind: "sender" }
   | { readonly kind: "relationship"; readonly recipientOnly?: boolean };
 declare module "fastify" {
@@ -17,6 +23,7 @@ declare module "fastify" {
 export interface AuthorizationOptions {
   identity: Pick<IdentityService, "authenticate">;
   db?: Kysely<Database>;
+  httpIdempotency?: Omit<HttpIdempotencyOptions, "scope">;
 }
 type Relationship = Selectable<Database["relationship"]>;
 const principals = new WeakMap<FastifyRequest, IdentityUser>();
@@ -70,7 +77,10 @@ export function installAuthorization(
   const inventory: { method: string; url: string; policy: AuthorizationPolicy["kind"] }[] = [];
   app.addHook("onRoute", (route) => {
     const policy = route.config?.authorizationPolicy;
-    if (policy === undefined || !["public", "sender", "relationship"].includes(policy.kind))
+    if (
+      policy === undefined ||
+      !["public", "signature-verified", "sender", "relationship"].includes(policy.kind)
+    )
       throw new Error(`Missing or invalid authorization policy: ${route.url}`);
     if (policy.kind === "relationship" && state.db === undefined)
       throw new Error("Relationship policy requires database");
@@ -80,7 +90,7 @@ export function installAuthorization(
   app.addHook("preValidation", async (request, reply) => {
     const policy = request.routeOptions.config.authorizationPolicy;
     if (policy === undefined) throw new UnauthorizedError();
-    if (policy.kind === "public") return;
+    if (policy.kind === "public" || policy.kind === "signature-verified") return;
     reply.header("cache-control", "no-store");
     const user = await state.identity.authenticate(bearerToken(request));
     principals.set(request, user);
@@ -103,6 +113,16 @@ export function installAuthorization(
     )
       throw new NotFoundError();
     relationships.set(request, row);
+  });
+  installHttpIdempotency(app, {
+    ...options.httpIdempotency,
+    skip: (request) =>
+      request.routeOptions.config.authorizationPolicy?.kind === "signature-verified",
+    scope: (request) =>
+      request.routeOptions.config.authorizationPolicy?.kind === "public" ||
+      request.routeOptions.config.authorizationPolicy?.kind === "signature-verified"
+        ? "public"
+        : principal(request).id,
   });
   const router: PolicyRouter = {
     route({ policy, config, ...route }) {
