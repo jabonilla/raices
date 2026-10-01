@@ -211,3 +211,55 @@ it("publishes host policies and scrubs decline text in logs and span attributes"
     setSpanExporter(() => {});
   }
 });
+it("scopes screen lists and transaction detail, preserves state pairs, and paginates", async () => {
+  const id = await submit();
+  const approved = await app.inject({
+    method: "POST",
+    url: `/relationships/${relationshipId}/requests/${id}/approve`,
+    headers: headers(sender),
+    payload: {},
+  });
+  expect(approved.statusCode).toBe(200);
+  const transactionId = approved.json<{ transactionId: string }>().transactionId;
+  for (const path of ["relationships", "requests", "history"]) {
+    const outsider = await app.inject({
+      method: "GET",
+      url: `/screen/${path}`,
+      headers: headers(stranger),
+    });
+    expect(outsider.statusCode).toBe(200);
+    expect(outsider.json<{ items: unknown[] }>().items).toEqual([]);
+  }
+  const details = await app.inject({
+    method: "GET",
+    url: `/screen/transactions/${transactionId}`,
+    headers: headers(sender),
+  });
+  expect(details.statusCode).toBe(200);
+  expect(details.json()).toMatchObject({
+    id: transactionId,
+    amount: body().amount,
+    intentState: "committed",
+    settlementState: "not_started",
+  });
+  const outsider = await app.inject({
+    method: "GET",
+    url: `/screen/transactions/${transactionId}`,
+    headers: headers(stranger),
+  });
+  expect(outsider.statusCode).toBe(404);
+  const page = await app.inject({
+    method: "GET",
+    url: "/screen/history?limit=1",
+    headers: headers(sender),
+  });
+  const first = page.json<{ items: { id: string }[]; nextCursor: string }>();
+  expect(first.items).toHaveLength(1);
+  expect(first.nextCursor).toBeTypeOf("string");
+  const next = await app.inject({
+    method: "GET",
+    url: `/screen/history?limit=1&before=${first.nextCursor}`,
+    headers: headers(sender),
+  });
+  expect(next.json<{ items: { id: string }[] }>().items[0]?.id).not.toBe(first.items[0]?.id);
+});
