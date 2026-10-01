@@ -29,6 +29,7 @@ Touch targets meet the 44pt minimum (DS §13). No hover-dependent interactions.
 ## Secrets
 
 **No secrets in the bundle.** Verified:
+
 - `EXPO_PUBLIC_*` vars are build-time only; unset vars are empty strings, not secrets
 - No `sk_live`, `pk_live`, or `secret` strings in the JS bundle
 - API base URL (`EXPO_PUBLIC_API_URL`) is public by design — it's the API endpoint, not a credential

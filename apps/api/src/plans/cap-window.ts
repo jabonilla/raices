@@ -64,12 +64,23 @@ export async function monthToDateSpend<DB extends PlanDatabase>(
   db: Kysely<DB>,
   input: MonthToDateSpendInput,
 ): Promise<Money> {
-  // A null category matches no category row, so the window CTE is empty and
-  // the sum is null: the query below already answers zero. There is no early
-  // return for it, because a branch whose removal changes nothing is a branch
-  // no test can hold in place.
   const zero = money(0n, input.currency);
   const now = input.now ?? new Date();
+
+  // A request that names no category has no cap to measure against, so there
+  // is nothing to sum.
+  //
+  // This return was removed in P2.5 as dead: the query below also answers
+  // zero for a null category, because the window CTE matches nothing and an
+  // aggregate with no GROUP BY still returns one all-null row. That was true
+  // and still is, but it was the wrong call. The contract "no category, no
+  // spend" was left resting on an incidental property of aggregate SQL, and
+  // it left `categoryId` nullable through the rest of the function, where
+  // every diagnostic below would have rendered it as the string "null".
+  // Removing this line now fails lint rather than silently going quiet,
+  // which is a firmer hold than the test I could not write for it.
+  const { categoryId } = input;
+  if (categoryId === null) return zero;
 
   // The window is [start of this month, start of next), both computed in the
   // zone the plan version names, then converted back to absolute instants so
@@ -83,7 +94,7 @@ export async function monthToDateSpend<DB extends PlanDatabase>(
           + interval '1 month') at time zone v.cap_timezone as ends_at
         from category c
         join plan_version v on v.id = c.plan_version_id
-       where c.id = ${input.categoryId}
+       where c.id = ${categoryId}
     )
     select
       sum(r.amount_minor)::text as total,
@@ -91,7 +102,7 @@ export async function monthToDateSpend<DB extends PlanDatabase>(
       min(r.amount_currency) as currency
       from request r, window_bounds w
      where r.relationship_id = ${input.relationshipId}
-       and r.category_id = ${input.categoryId}
+       and r.category_id = ${categoryId}
        and r.status = 'approved'
        and r.created_at >= w.starts_at
        and r.created_at < w.ends_at
@@ -102,18 +113,31 @@ export async function monthToDateSpend<DB extends PlanDatabase>(
 
   if (row.currencies > 1) {
     throw new Error(
-      `Category ${input.categoryId} has approved spend in more than one currency this ` +
+      `Category ${categoryId} has approved spend in more than one currency this ` +
         `period. A cap is in one currency; summing across them would invent an exchange rate.`,
     );
   }
 
   const found = row.currency;
-  if (found === null || !isCurrency(found)) {
-    throw new Error(`Category ${input.categoryId} has spend in unsupported currency ${found}.`);
+  // Split from the unsupported-currency case below because they are different
+  // failures. A non-null total with a null currency means the aggregate
+  // summed rows and found no currency on any of them, which the NOT NULL on
+  // amount_currency makes impossible; saying so is more use than reporting it
+  // as the unsupported currency "null".
+  if (found === null) {
+    throw new Error(
+      `Category ${categoryId} reported spend with no currency. amount_currency is NOT NULL, ` +
+        `so a non-empty sum must have one.`,
+    );
+  }
+  if (!isCurrency(found)) {
+    throw new Error(
+      `Category ${categoryId} has spend in unsupported currency ${JSON.stringify(found)}.`,
+    );
   }
   if (found !== input.currency) {
     throw new Error(
-      `Category ${input.categoryId} has spend in ${found}, but the cap window was asked ` +
+      `Category ${categoryId} has spend in ${found}, but the cap window was asked ` +
         `for in ${input.currency}.`,
     );
   }

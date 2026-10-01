@@ -69,10 +69,10 @@
     "title": "Assistant"
   },
   "common": {
+    "back": "Back",
     "sendNow": "Send now"
   },
   "goal": {
-    "back": "Back",
     "remaining": "{{remaining}} to go for the {{total}}",
     "savedSoFar": "Saved so far",
     "stages": "Stages",
@@ -170,7 +170,6 @@
     "placeholder": "5550 1234"
   },
   "relationships": {
-    "back": "Back",
     "emptyBody": "You don't have anyone in your list yet. Invite someone to get started.",
     "expired": "Expired",
     "expiresInDays": "Expires in {{count}} days",

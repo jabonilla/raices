@@ -69,10 +69,10 @@
     "title": "Asistente"
   },
   "common": {
+    "back": "Atrás",
     "sendNow": "Enviar ahora"
   },
   "goal": {
-    "back": "Atrás",
     "remaining": "Faltan {{remaining}} para los {{total}}",
     "savedSoFar": "Ahorrado hasta hoy",
     "stages": "Etapas",
@@ -170,7 +170,6 @@
     "placeholder": "5550 1234"
   },
   "relationships": {
-    "back": "Atrás",
     "emptyBody": "No tenés a nadie en tu lista. Invitá a alguien para empezar.",
     "expired": "Vencida",
     "expiresInDays": "Vence en {{count}} días",
