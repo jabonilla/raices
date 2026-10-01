@@ -47,7 +47,7 @@ export function RelationshipStatusBadge({ status }: RelationshipStatusBadgeProps
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={t("relationships.statusLabel", { status: label })}
+      accessibilityLabel={t("statusBadge.statusLabel", { status: label })}
       style={[styles.badge, { backgroundColor: colors.bg }]}
     >
       <Text style={[styles.text, { color: colors.fg }]}>{label}</Text>

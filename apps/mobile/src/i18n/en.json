@@ -1,44 +1,44 @@
 {
   "apiErrors": {
-    "internal_error": {
-      "title": "Something didn't work on our side.",
-      "body": "Try again in a few minutes. If it keeps happening, ask the assistant."
-    },
-    "invalid_request": {
-      "title": "Something in the information wasn't right.",
-      "body": "Check what you entered and try again."
-    },
     "bad_request": {
-      "title": "We couldn't understand that request.",
-      "body": "Try again. If it keeps happening, ask the assistant."
-    },
-    "unauthorized": {
-      "title": "Your session ended.",
-      "body": "Sign in again to continue."
-    },
-    "forbidden": {
-      "title": "You don't have permission to do that.",
-      "body": "If that doesn't seem right, ask the assistant."
-    },
-    "not_found": {
-      "title": "We couldn't find what you were looking for.",
-      "body": "It may have been moved or deleted. Go back and try again."
-    },
-    "method_not_allowed": {
-      "title": "That action isn't available here.",
-      "body": "Go back and try a different option."
+      "body": "Try again. If it keeps happening, ask the assistant.",
+      "title": "We couldn't understand that request."
     },
     "conflict": {
-      "title": "It looks like this was already done.",
-      "body": "Check your history before trying again."
+      "body": "Refresh to see how it stands now.",
+      "title": "This has changed."
+    },
+    "forbidden": {
+      "body": "If that doesn't seem right, ask the assistant.",
+      "title": "You don't have permission to do that."
+    },
+    "internal_error": {
+      "body": "Try again in a little while.",
+      "title": "Something didn't work on our side."
+    },
+    "invalid_request": {
+      "body": "Check the information and try again.",
+      "title": "Something in the information isn't right."
+    },
+    "method_not_allowed": {
+      "body": "Go back and try a different option.",
+      "title": "That action isn't available here."
+    },
+    "not_found": {
+      "body": "It may have been moved or deleted. Go back and try again.",
+      "title": "We couldn't find what you're looking for."
     },
     "rate_limited": {
-      "title": "Too many tries in a short time.",
-      "body": "Wait a minute and try again."
+      "body": "Wait a few minutes and try again.",
+      "title": "Too many attempts."
+    },
+    "unauthorized": {
+      "body": "Sign in again to continue.",
+      "title": "Your session ended."
     },
     "unavailable": {
-      "title": "We're a bit busy right now.",
-      "body": "Nothing was lost — try again in a moment."
+      "body": "Nothing was lost — try again in a moment.",
+      "title": "The service isn't available right now."
     }
   },
   "app": {
@@ -59,12 +59,15 @@
     "inputPlaceholder": "Type your question…",
     "languageToggle": "Español / English",
     "scope": "I explain what's happening with your money. Moving it is always your call.",
-    "title": "Assistant",
     "states": {
-      "emptyBody": "Ask anything — I'll explain what's happening with your money.",
-      "emptyTitle": "No conversation yet.",
-      "errorTitle": "We couldn't load the conversation."
-    }
+      "emptyBody": "Ask me anything. I'll explain what's happening with your money.",
+      "emptyTitle": "No conversations yet.",
+      "errorTitle": "The conversation didn't load."
+    },
+    "title": "Assistant"
+  },
+  "common": {
+    "sendNow": "Send now"
   },
   "goal": {
     "remaining": "{{remaining}} to go for the {{total}}",
@@ -73,7 +76,7 @@
       "emptyAction": "Create my goal",
       "emptyBody": "Give a name to what you're building.",
       "emptyTitle": "What are you saving for?",
-      "errorTitle": "We couldn't load your goal."
+      "errorTitle": "We couldn't load your goals. Try again."
     }
   },
   "goalCard": {
@@ -87,29 +90,100 @@
       "flagged": "To review",
       "pending": "Pending"
     },
-    "title": "History",
     "states": {
-      "emptyAction": "Send now",
       "emptyBody": "Everything stays saved.",
       "emptyTitle": "When you send your first payment, you'll see it here.",
-      "errorTitle": "We couldn't load your history."
-    }
+      "errorTitle": "We couldn't load your history. Try again."
+    },
+    "title": "History"
   },
   "home": {
     "greeting": "Good morning, {{name}}",
     "pendingPill": "{{count}} requests waiting for you",
     "recentActivity": "Recent activity",
     "states": {
-      "emptyAction": "Send now",
       "emptyBody": "When you do, you'll see it here.",
       "emptyTitle": "You haven't sent anything yet.",
-      "errorTitle": "We couldn't load your home screen."
+      "errorTitle": "We couldn't load your screen. Try again."
     }
   },
   "indicators": {
-    "statusDotUrgent": "Urgent",
-    "statusDotConnected": "Connected",
-    "countBadge": "{{count}} pending"
+    "countBadge": "{{count}} pending",
+    "statusDotConnected": "Connected"
+  },
+  "invite": {
+    "errors": {
+      "nameRequired": "Write what you call this person. That is what you will see in your list."
+    },
+    "inviteAnother": "Invite another person",
+    "nameLabel": "What do you call this person?",
+    "namePlaceholder": "Mom",
+    "phoneLabel": "Phone number",
+    "sentBody": "We sent them a WhatsApp message. When they accept, you'll see them here.",
+    "sentTitle": "Invitation sent.",
+    "submit": "Send invitation",
+    "title": "Invite"
+  },
+  "notifications": {
+    "invite_received": {
+      "body": "Open Raíces to see the invitation.",
+      "title": "You've been invited"
+    },
+    "relationship_updated": {
+      "body": "Open Raíces to see the latest.",
+      "title": "Something changed"
+    },
+    "transfer_approved": {
+      "body": "Open Raíces for the details.",
+      "title": "Your request was approved"
+    },
+    "transfer_needs_approval": {
+      "body": "Open Raíces to review it.",
+      "title": "Something needs your approval"
+    },
+    "transfer_received": {
+      "body": "Open Raíces to see what changed.",
+      "title": "You have a new update"
+    }
+  },
+  "phone": {
+    "countries": {
+      "ES": "Spain",
+      "GT": "Guatemala",
+      "HN": "Honduras",
+      "MX": "Mexico",
+      "SV": "El Salvador",
+      "US": "United States"
+    },
+    "countryLabel": "Country code: {{country}}",
+    "errors": {
+      "digits": "After the + only digits, no spaces or letters.",
+      "plus": "The number must start with + and the country code. Example: +502 5550 1234.",
+      "required": "Enter the phone number.",
+      "tooLong": "The number is too long. International numbers have at most 15 digits.",
+      "tooShort": "The number is too short. Check that it is complete."
+    },
+    "placeholder": "5550 1234"
+  },
+  "relationships": {
+    "back": "Back",
+    "emptyBody": "You don't have anyone in your list yet. Invite someone to get started.",
+    "expired": "Expired",
+    "expiresInDays": "Expires in {{count}} days",
+    "expiresInHours": "Expires in {{count}} hours",
+    "inviteAction": "Invite someone",
+    "invitedLabel": "Invitation",
+    "phoneLabel": "Phone",
+    "resend": "Resend invitation",
+    "resentOk": "Invitation resent.",
+    "status": {
+      "active": "Active",
+      "invited": "Invited",
+      "paused": "Paused",
+      "terminated": "Ended"
+    },
+    "statusRowLabel": "Status",
+    "title": "People"
   },
   "states": {
     "askAi": "Ask the assistant",
@@ -121,11 +195,11 @@
   },
   "statusBadge": {
     "approved": "✓ Sent",
-    "pending": "Waiting",
-    "flagged": "Needs review",
-    "emergency": "Urgent",
     "declined": "On hold",
+    "emergency": "Urgent",
     "failed": "Didn't arrive",
+    "flagged": "Needs review",
+    "pending": "Waiting",
     "statusLabel": "Status: {{status}}"
   },
   "tabs": {
@@ -134,79 +208,5 @@
     "history": "History",
     "home": "Home",
     "send": "Send"
-  },
-  "phone": {
-    "countries": {
-      "GT": "Guatemala",
-      "US": "United States",
-      "MX": "Mexico",
-      "SV": "El Salvador",
-      "HN": "Honduras",
-      "ES": "Spain"
-    },
-    "countryLabel": "Country code: {{country}}",
-    "placeholder": "5550 1234",
-    "errors": {
-      "required": "Enter the phone number.",
-      "plus": "The number must start with + and the country code. Example: +502 5550 1234.",
-      "digits": "After the + only digits, no spaces or letters.",
-      "tooShort": "The number is too short. Check that it is complete.",
-      "tooLong": "The number is too long. International numbers have at most 15 digits."
-    }
-  },
-  "invite": {
-    "title": "Invite",
-    "nameLabel": "What do you call this person?",
-    "namePlaceholder": "Mom",
-    "phoneLabel": "Phone number",
-    "submit": "Send invitation",
-    "errors": {
-      "nameRequired": "Write what you call this person. That is what you will see in your list."
-    },
-    "inviteAnother": "Invite another person"
-  },
-  "relationships": {
-    "title": "People",
-    "status": {
-      "invited": "Invited",
-      "active": "Active",
-      "paused": "Paused",
-      "terminated": "Ended"
-    },
-    "statusLabel": "Status: {{status}}",
-    "expiresInDays": "Expires in {{count}} days",
-    "expiresInHours": "Expires in {{count}} hours",
-    "expired": "Expired",
-    "resend": "Resend invitation",
-    "phoneLabel": "Phone",
-    "invitedOn": "Invited on {{date}}",
-    "inviteAction": "Invite someone",
-    "resentOk": "Invitation resent.",
-    "emptyBody": "You have no people in your list yet. Invite someone to get started.",
-    "back": "Back",
-    "invitedLabel": "Invitation",
-    "statusRowLabel": "Status"
-  },
-  "notifications": {
-    "transfer_received": {
-      "title": "You have a new update",
-      "body": "Open Raíces to see what changed."
-    },
-    "transfer_approved": {
-      "title": "Your request was approved",
-      "body": "Open Raíces for the details."
-    },
-    "transfer_needs_approval": {
-      "title": "Something needs your approval",
-      "body": "Open Raíces to review it."
-    },
-    "invite_received": {
-      "title": "You've been invited",
-      "body": "Open Raíces to see the invitation."
-    },
-    "relationship_updated": {
-      "title": "Something changed",
-      "body": "Open Raíces to see the latest."
-    }
   }
 }

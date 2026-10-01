@@ -116,10 +116,8 @@ export function InviteScreen({
         </View>
       ) : (
         <View style={styles.confirm}>
-          <Text style={styles.confirmTitle}>
-            {/* TODO(copy): confirmation copy is functional — the sheet is silent. */}
-            {t("invite.title")}
-          </Text>
+          <Text style={styles.confirmTitle}>{t("invite.sentTitle")}</Text>
+          <Text style={styles.confirmBody}>{t("invite.sentBody")}</Text>
           <Text style={styles.confirmName}>{sent.displayName}</Text>
           <Text style={styles.confirmPhone}>{sent.phoneE164}</Text>
           <Button
@@ -166,6 +164,12 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.display,
     color: tokens.color.textPrimary,
     marginBottom: tokens.spacing.s2,
+  },
+  confirmBody: {
+    fontSize: tokens.type.body.size,
+    fontFamily: tokens.font.body,
+    color: tokens.color.textSecondary,
+    marginBottom: tokens.spacing.s3,
   },
   confirmName: {
     fontSize: tokens.type.bodyLarge.size,

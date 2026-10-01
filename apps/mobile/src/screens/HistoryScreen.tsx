@@ -35,7 +35,7 @@ export function HistoryScreen({
         kind="empty"
         title={t("history.states.emptyTitle")}
         body={t("history.states.emptyBody")}
-        primaryLabel={t("history.states.emptyAction")}
+        primaryLabel={t("common.sendNow")}
         onPrimaryPress={() => {}}
       />
     );

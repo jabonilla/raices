@@ -36,7 +36,7 @@ export function HomeScreen({
         kind="empty"
         title={t("home.states.emptyTitle")}
         body={t("home.states.emptyBody")}
-        primaryLabel={t("home.states.emptyAction")}
+        primaryLabel={t("common.sendNow")}
         onPrimaryPress={() => {}}
       />
     );

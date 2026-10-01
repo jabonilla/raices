@@ -1,44 +1,44 @@
 {
   "apiErrors": {
-    "internal_error": {
-      "title": "Algo no funcionó de nuestro lado.",
-      "body": "Intenta de nuevo en unos minutos. Si sigue pasando, pregúntale al asistente."
-    },
-    "invalid_request": {
-      "title": "Algo en la información no está bien.",
-      "body": "Revisa lo que ingresaste e intenta de nuevo."
-    },
     "bad_request": {
-      "title": "No pudimos entender esa solicitud.",
-      "body": "Intenta de nuevo. Si sigue pasando, pregúntale al asistente."
-    },
-    "unauthorized": {
-      "title": "Tu sesión terminó.",
-      "body": "Inicia sesión de nuevo para continuar."
-    },
-    "forbidden": {
-      "title": "No tienes permiso para hacer eso.",
-      "body": "Si esto no te parece correcto, pregúntale al asistente."
-    },
-    "not_found": {
-      "title": "No encontramos lo que buscabas.",
-      "body": "Pudo haberse movido o eliminado. Regresa e intenta de nuevo."
-    },
-    "method_not_allowed": {
-      "title": "Esa acción no está disponible aquí.",
-      "body": "Regresa e intenta con otra opción."
+      "body": "Intenta de nuevo. Si sigue pasando, pregúntale al asistente.",
+      "title": "No entendimos tu solicitud."
     },
     "conflict": {
-      "title": "Parece que esto ya se hizo.",
-      "body": "Revisa tu historial antes de intentarlo de nuevo."
+      "body": "Actualizá la pantalla para ver cómo está ahora.",
+      "title": "Esto ya cambió."
+    },
+    "forbidden": {
+      "body": "Si esto no te parece correcto, pregúntale al asistente.",
+      "title": "No tenés permiso para hacer eso."
+    },
+    "internal_error": {
+      "body": "Probá de nuevo en un ratito.",
+      "title": "Algo no funcionó de nuestro lado."
+    },
+    "invalid_request": {
+      "body": "Revisá los datos e intentá de nuevo.",
+      "title": "Algo en la información es incorrecto."
+    },
+    "method_not_allowed": {
+      "body": "Regresa e intenta con otra opción.",
+      "title": "Esa acción no está disponible aquí."
+    },
+    "not_found": {
+      "body": "Pudo haberse movido o eliminado. Regresa e intenta de nuevo.",
+      "title": "No encontramos lo que buscás."
     },
     "rate_limited": {
-      "title": "Demasiados intentos en poco tiempo.",
-      "body": "Espera un minuto e intenta de nuevo."
+      "body": "Esperá unos minutos y probá otra vez.",
+      "title": "Demasiados intentos."
+    },
+    "unauthorized": {
+      "body": "Volvé a iniciar sesión para continuar.",
+      "title": "Tu sesión expiró."
     },
     "unavailable": {
-      "title": "Estamos un poco ocupados ahora mismo.",
-      "body": "No se perdió nada — intenta de nuevo en un momento."
+      "body": "No se perdió nada — intenta de nuevo en un momento.",
+      "title": "El servicio no está disponible en este momento."
     }
   },
   "app": {
@@ -50,21 +50,24 @@
     "decline": "Ahorita no",
     "planMatchDetail": "{{available}} disponibles en {{category}}",
     "states": {
-      "emptyBody": "No hay nada esperando tu respuesta.",
-      "emptyTitle": "Todo al día.",
-      "errorTitle": "No pudimos cargar este pedido."
+      "emptyBody": "No hay mensajes por responder.",
+      "emptyTitle": "Estamos al día.",
+      "errorTitle": "No pudimos cargar la solicitud."
     }
   },
   "assistant": {
     "inputPlaceholder": "Escribe tu pregunta…",
     "languageToggle": "Español / English",
     "scope": "Te explico lo que pasa con tu dinero. Moverlo siempre lo decides tú.",
-    "title": "Asistente",
     "states": {
-      "emptyBody": "Pregunta lo que quieras — te explico lo que pasa con tu dinero.",
-      "emptyTitle": "Todavía no hay conversación.",
-      "errorTitle": "No pudimos cargar la conversación."
-    }
+      "emptyBody": "Preguntame lo que querás. Te explico qué está pasando con tu dinero.",
+      "emptyTitle": "No tenés conversaciones.",
+      "errorTitle": "No se cargó la conversación."
+    },
+    "title": "Asistente"
+  },
+  "common": {
+    "sendNow": "Enviar ahora"
   },
   "goal": {
     "remaining": "Faltan {{remaining}} para los {{total}}",
@@ -73,7 +76,7 @@
       "emptyAction": "Crear mi meta",
       "emptyBody": "Ponle nombre a lo que estás construyendo.",
       "emptyTitle": "¿Para qué estás ahorrando?",
-      "errorTitle": "No pudimos cargar tu meta."
+      "errorTitle": "No pudimos cargar tus metas. Probá de nuevo."
     }
   },
   "goalCard": {
@@ -87,29 +90,100 @@
       "flagged": "Para revisar",
       "pending": "Pendientes"
     },
-    "title": "Historial",
     "states": {
-      "emptyAction": "Enviar ahora",
       "emptyBody": "Todo queda guardado.",
       "emptyTitle": "Cuando envíes tu primer pago, lo vas a ver aquí.",
-      "errorTitle": "No pudimos cargar tu historial."
-    }
+      "errorTitle": "No pudimos cargar tu historial. Probá de nuevo."
+    },
+    "title": "Historial"
   },
   "home": {
     "greeting": "Buenos días, {{name}}",
     "pendingPill": "{{count}} pedidos esperando tu respuesta",
     "recentActivity": "Actividad reciente",
     "states": {
-      "emptyAction": "Enviar ahora",
-      "emptyBody": "Cuando lo hagas, lo verás aquí.",
-      "emptyTitle": "Todavía no has enviado nada.",
-      "errorTitle": "No pudimos cargar tu inicio."
+      "emptyBody": "Cuando hagás un envío, aquí lo vas a poder ver.",
+      "emptyTitle": "Todavía no has hecho ningún envío.",
+      "errorTitle": "No pudimos cargar tu pantalla. Probá de nuevo."
     }
   },
   "indicators": {
-    "statusDotUrgent": "Urgente",
-    "statusDotConnected": "Conectado",
-    "countBadge": "{{count}} pendientes"
+    "countBadge": "{{count}} pendientes",
+    "statusDotConnected": "Conectado"
+  },
+  "invite": {
+    "errors": {
+      "nameRequired": "Escribe cómo le dices a esta persona. Es lo que verá en tu lista."
+    },
+    "inviteAnother": "Invitar a otra persona",
+    "nameLabel": "¿Cómo le dices a esta persona?",
+    "namePlaceholder": "Mamá",
+    "phoneLabel": "Número de teléfono",
+    "sentBody": "Le mandamos un mensaje por WhatsApp. Cuando acepte, lo vas a ver aquí.",
+    "sentTitle": "Invitación enviada.",
+    "submit": "Enviar invitación",
+    "title": "Invitar"
+  },
+  "notifications": {
+    "invite_received": {
+      "body": "Abre Raíces para ver la invitación.",
+      "title": "Te han invitado"
+    },
+    "relationship_updated": {
+      "body": "Abre Raíces para ver lo último.",
+      "title": "Algo cambió"
+    },
+    "transfer_approved": {
+      "body": "Abre Raíces para ver los detalles.",
+      "title": "Tu solicitud fue aprobada"
+    },
+    "transfer_needs_approval": {
+      "body": "Abre Raíces para revisarlo.",
+      "title": "Algo necesita tu aprobación"
+    },
+    "transfer_received": {
+      "body": "Abre Raíces para ver qué cambió.",
+      "title": "Tienes una novedad"
+    }
+  },
+  "phone": {
+    "countries": {
+      "ES": "España",
+      "GT": "Guatemala",
+      "HN": "Honduras",
+      "MX": "México",
+      "SV": "El Salvador",
+      "US": "Estados Unidos"
+    },
+    "countryLabel": "Código de país: {{country}}",
+    "errors": {
+      "digits": "Después del + solo van dígitos, sin espacios ni letras.",
+      "plus": "El número debe empezar con + y el código del país. Ejemplo: +502 5550 1234.",
+      "required": "Escribe el número de teléfono.",
+      "tooLong": "El número está muy largo. Los números internacionales tienen máximo 15 dígitos.",
+      "tooShort": "El número está muy corto. Revisa que esté completo."
+    },
+    "placeholder": "5550 1234"
+  },
+  "relationships": {
+    "back": "Atrás",
+    "emptyBody": "No tenés a nadie en tu lista. Invitá a alguien para empezar.",
+    "expired": "Vencida",
+    "expiresInDays": "Vence en {{count}} días",
+    "expiresInHours": "Vence en {{count}} horas",
+    "inviteAction": "Invitar a alguien",
+    "invitedLabel": "Invitación",
+    "phoneLabel": "Teléfono",
+    "resend": "Reenviar invitación",
+    "resentOk": "Invitación reenviada.",
+    "status": {
+      "active": "Activa",
+      "invited": "Invitada",
+      "paused": "En pausa",
+      "terminated": "Terminada"
+    },
+    "statusRowLabel": "Estado",
+    "title": "Personas"
   },
   "states": {
     "askAi": "Preguntar al asistente",
@@ -121,11 +195,11 @@
   },
   "statusBadge": {
     "approved": "✓ Enviado",
-    "pending": "Esperando",
-    "flagged": "Para revisar",
-    "emergency": "Urgente",
     "declined": "En pausa",
+    "emergency": "Urgente",
     "failed": "No llegó",
+    "flagged": "Para revisar",
+    "pending": "Esperando",
     "statusLabel": "Estado: {{status}}"
   },
   "tabs": {
@@ -134,79 +208,5 @@
     "history": "Historial",
     "home": "Inicio",
     "send": "Enviar"
-  },
-  "phone": {
-    "countries": {
-      "GT": "Guatemala",
-      "US": "Estados Unidos",
-      "MX": "México",
-      "SV": "El Salvador",
-      "HN": "Honduras",
-      "ES": "España"
-    },
-    "countryLabel": "Código de país: {{country}}",
-    "placeholder": "5550 1234",
-    "errors": {
-      "required": "Escribe el número de teléfono.",
-      "plus": "El número debe empezar con + y el código del país. Ejemplo: +502 5550 1234.",
-      "digits": "Después del + solo van dígitos, sin espacios ni letras.",
-      "tooShort": "El número está muy corto. Revisa que esté completo.",
-      "tooLong": "El número está muy largo. Los números internacionales tienen máximo 15 dígitos."
-    }
-  },
-  "invite": {
-    "title": "Invitar",
-    "nameLabel": "¿Cómo le dices a esta persona?",
-    "namePlaceholder": "Mamá",
-    "phoneLabel": "Número de teléfono",
-    "submit": "Enviar invitación",
-    "errors": {
-      "nameRequired": "Escribe cómo le dices a esta persona. Es lo que verá en tu lista."
-    },
-    "inviteAnother": "Invitar a otra persona"
-  },
-  "relationships": {
-    "title": "Personas",
-    "status": {
-      "invited": "Invitada",
-      "active": "Activa",
-      "paused": "En pausa",
-      "terminated": "Terminada"
-    },
-    "statusLabel": "Estado: {{status}}",
-    "expiresInDays": "Vence en {{count}} días",
-    "expiresInHours": "Vence en {{count}} horas",
-    "expired": "Vencida",
-    "resend": "Reenviar invitación",
-    "phoneLabel": "Teléfono",
-    "invitedOn": "Invitada el {{date}}",
-    "inviteAction": "Invitar a alguien",
-    "resentOk": "Invitación reenviada.",
-    "emptyBody": "Todavía no tienes personas en tu lista. Invita a alguien para empezar.",
-    "back": "Atrás",
-    "invitedLabel": "Invitación",
-    "statusRowLabel": "Estado"
-  },
-  "notifications": {
-    "transfer_received": {
-      "title": "Tienes una novedad",
-      "body": "Abre Raíces para ver qué cambió."
-    },
-    "transfer_approved": {
-      "title": "Tu solicitud fue aprobada",
-      "body": "Abre Raíces para ver los detalles."
-    },
-    "transfer_needs_approval": {
-      "title": "Algo necesita tu aprobación",
-      "body": "Abre Raíces para revisarlo."
-    },
-    "invite_received": {
-      "title": "Te han invitado",
-      "body": "Abre Raíces para ver la invitación."
-    },
-    "relationship_updated": {
-      "title": "Algo cambió",
-      "body": "Abre Raíces para ver lo último."
-    }
   }
 }
