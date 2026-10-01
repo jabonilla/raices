@@ -82,13 +82,13 @@ export function RelationshipDetailScreen({
       {onBack !== undefined ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("relationships.back")}
+          accessibilityLabel={t("common.back")}
           onPress={onBack}
           style={styles.back}
         >
           <Text style={styles.backLabel}>
             {"< "}
-            {t("relationships.back")}
+            {t("common.back")}
           </Text>
         </Pressable>
       ) : null}

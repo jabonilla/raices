@@ -260,7 +260,12 @@ async function changeStatus(
 
           // Unreachable today for the reason above; see the PR for the
           // mutation result rather than assuming this branch is exercised.
-          if ((result.numUpdatedRows ?? 0n) === 0n) {
+          //
+          // No `?? 0n`: Kysely's UpdateResult declares numUpdatedRows as a
+          // non-optional bigint, so the fallback could never fire and only
+          // made the zero case look conditional. The comparison stays — it
+          // is the compare-and-swap's result.
+          if (result.numUpdatedRows === 0n) {
             throw new StaleRelationshipStateError(input.relationshipId, from);
           }
         },

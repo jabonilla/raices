@@ -236,7 +236,11 @@ export async function approveAndRecord(
 
         // The request id is the idempotency key, per the ticket: one request
         // can only ever produce one posting, and the key says so.
-        const posted = await postWithin(raw as unknown as Transaction<Database>, {
+        // `raw` is already Transaction<Database>: approveAndRecord takes
+        // Kysely<Database>, so no cast is needed here. The cast to
+        // Transaction<TransactionDatabase> above is a different matter — that
+        // one crosses between two DB types and Kysely's invariance requires it.
+        const posted = await postWithin(raw, {
           idempotencyKey: input.requestId,
           description: request.description,
           occurredAt,

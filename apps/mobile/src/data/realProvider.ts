@@ -31,27 +31,20 @@ import type {
  * Each is reachable and shows the right copy via the screenState prop.
  */
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "";
-const API_TOKEN = process.env.EXPO_PUBLIC_API_TOKEN ?? "";
-
-async function apiGet<T>(path: string): Promise<T> {
-  if (!API_BASE) {
-    throw new Error(
-      "EXPO_PUBLIC_API_URL is not set. " +
-        "Set it to the API base URL, or use the fixture provider (default).",
-    );
-  }
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {}),
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`API ${res.status} on ${path}`);
-  }
-  return (await res.json()) as T;
-}
+/**
+ * Real data provider (K2.41): structure for the future API-backed
+ * implementation, selectable via EXPO_PUBLIC_DATA_PROVIDER=real.
+ *
+ * Currently every method throws notReady() — K3's endpoints (K3.16/K3.17)
+ * are merged but the mobile wiring is not yet done. The fixture provider
+ * remains the default.
+ *
+ * Migration path (when wiring):
+ * 1. Set EXPO_PUBLIC_API_URL to the API base URL
+ * 2. Implement each method with fetch + map (see implementation notes below)
+ * 3. The mappers translate K3's payloads to the ./types.ts shapes
+ * 4. Amounts stay as opaque strings — never call packages/money format()
+ */
 
 /**
  * Real provider implementation.
