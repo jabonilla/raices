@@ -43,7 +43,6 @@ export interface ExportedSpan {
   readonly attributes: Record<string, unknown>;
   readonly status: {
     readonly code: SpanStatusCode;
-    readonly message: string | undefined;
   };
 }
 
@@ -60,7 +59,12 @@ export interface Span {
    * that, same limitation as the logs.
    */
   setAttribute(key: string, value: unknown): void;
-  setStatus(code: SpanStatusCode, message?: string): void;
+  /**
+   * Set the span status code. No free-text message: status messages bypass
+   * redaction (issue #101), so the vocabulary is fixed to the code alone.
+   * If a diagnostic is needed, put it in a redacted attribute, not here.
+   */
+  setStatus(code: SpanStatusCode): void;
   /** Ends the span and hands it to the configured exporter. Idempotent. */
   end(): void;
 }
@@ -126,7 +130,6 @@ class SpanImpl implements Span {
   private spanName: string;
   private readonly attributes: Record<string, unknown> = {};
   private statusCode: SpanStatusCode = "unset";
-  private statusMessage: string | undefined = undefined;
   private readonly startMs: number = Date.now();
   private ended = false;
 
@@ -152,12 +155,13 @@ class SpanImpl implements Span {
     this.attributes[key] = SENSITIVE_LOG_KEYS.includes(key) ? CENSOR : censorSensitiveKeys(value);
   }
 
-  setStatus(code: SpanStatusCode, message?: string): void {
+  setStatus(code: SpanStatusCode): void {
     if (this.ended) {
       return;
     }
     this.statusCode = code;
-    this.statusMessage = message;
+    // No statusMessage: free text bypasses redaction (issue #101).
+    // The code alone is the fixed vocabulary.
   }
 
   end(): void {
@@ -175,7 +179,7 @@ class SpanImpl implements Span {
       endTimeUnixMs: endMs,
       durationMs: endMs - this.startMs,
       attributes: this.attributes,
-      status: { code: this.statusCode, message: this.statusMessage },
+      status: { code: this.statusCode },
     });
   }
 }
