@@ -18,6 +18,14 @@
 // { note: "call +15551234567" }) cannot be caught by key-based redaction.
 
 const REDACT_PATHS = [
+  "reason",
+  "*.reason",
+  "declineReason",
+  "*.declineReason",
+  "decline_reason",
+  "*.decline_reason",
+  "description",
+  "*.description",
   // Phone numbers (top-level and one level deep)
   "phone",
   "*.phone",

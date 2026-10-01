@@ -1,3 +1,7 @@
+import { registerRequestRoutes, type RequestHttpOptions } from "./http/requests.js";
+import { registerIdentityRoutes, type IdentityHttpOptions } from "./http/identity.js";
+import { installAuthorization } from "./http/policy.js";
+import { buildHttpOpenApiDocument } from "./http/document.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 
@@ -28,6 +32,9 @@ const REQUEST_ID_HEADER = "x-request-id";
 export const MAX_JSON_BODY_BYTES = 256 * 1024;
 
 export interface BuildAppOptions {
+  /** Explicit demo dependencies; no production credentials or account mapping defaults. */
+  readonly demoApi?: RequestHttpOptions & Pick<IdentityHttpOptions, "identity" | "clientIp">;
+
   /** Max requests per rate-limit window, per client IP. Defaults to 600. */
   readonly rateLimitMax?: number;
   /** Rate-limit window length in ms. Defaults to one minute. */
@@ -99,15 +106,25 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     trustProxy: true,
   });
 
+  if (options.demoApi !== undefined) {
+    // Only the four enumerated host endpoints are public/provider authenticated.
+    app.addHook("onRoute", (route) => {
+      const methods = Array.isArray(route.method) ? route.method : [route.method];
+      if (
+        methods.every((method) => ["GET", "HEAD"].includes(method)) &&
+        ["/health", "/ready", "/openapi.json"].includes(route.url)
+      ) {
+        route.config = { ...route.config, authorizationPolicy: { kind: "public" } };
+      } else if (
+        methods.every((method) => method === "POST") &&
+        route.url === "/webhooks/channel"
+      ) {
+        route.config = { ...route.config, authorizationPolicy: { kind: "signature-verified" } };
+      }
+    });
+    installAuthorization(app, options.demoApi);
+  }
   registerSecurityHeaders(app);
-
-  // K3 integration point (K3.10): installAuthorization must run here —
-  // before ANY routes are registered in the host scope — so the
-  // authorization policy covers every route including the K2-owned
-  // /health, /ready, /openapi.json, and /webhooks/channel (see
-  // HOST_ROUTE_POLICIES above). K3 owns the installAuthorization
-  // implementation; this is the seam where it plugs in.
-  // TODO(k3): call installAuthorization(app) here when K3.10 lands.
 
   const checkRateLimit = registerRateLimit(app, {
     max: options.rateLimitMax ?? 600,
@@ -176,7 +193,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   // /openapi.json: the API contract, generated at runtime from the Zod
   // schemas. Served as JSON; see src/openapi.ts.
   app.get("/openapi.json", () => {
-    return buildOpenApiDocument();
+    return options.demoApi === undefined ? buildOpenApiDocument() : buildHttpOpenApiDocument();
   });
 
   // POST /webhooks/channel: the receiving half of the channel seam (K2.28).
@@ -190,6 +207,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     rateLimitCheck: options.webhooks?.rateLimitCheck ?? checkRateLimit,
     handleEvent: options.webhooks?.handleEvent,
   });
+
+  if (options.demoApi !== undefined) {
+    registerIdentityRoutes(app, { ...options.demoApi, rateLimitCheck: checkRateLimit });
+    registerRequestRoutes(app, options.demoApi);
+  }
 
   return app;
 }
