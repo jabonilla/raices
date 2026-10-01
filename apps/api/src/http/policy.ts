@@ -14,7 +14,11 @@ export type AuthorizationPolicy =
    */
   | { readonly kind: "signature-verified" }
   | { readonly kind: "sender" }
-  | { readonly kind: "relationship"; readonly recipientOnly?: boolean };
+  | {
+      readonly kind: "relationship";
+      readonly recipientOnly?: boolean;
+      readonly senderOnly?: boolean;
+    };
 declare module "fastify" {
   interface FastifyContextConfig {
     authorizationPolicy?: AuthorizationPolicy;
@@ -95,7 +99,7 @@ export function installAuthorization(
     const user = await state.identity.authenticate(bearerToken(request));
     principals.set(request, user);
     if (policy.kind === "sender") return;
-    const { id } = z.object({ id: z.uuid() }).strict().parse(request.params);
+    const { id } = z.object({ id: z.uuid() }).parse(request.params);
     if (state.db === undefined) throw new UnauthorizedError();
     const row = await state.db
       .selectFrom("relationship")
@@ -109,6 +113,14 @@ export function installAuthorization(
       !(
         (row.user_a_id === user.id && row.role_of_a === "recipient") ||
         (row.user_b_id === user.id && row.role_of_b === "recipient")
+      )
+    )
+      throw new NotFoundError();
+    if (
+      policy.senderOnly === true &&
+      !(
+        (row.user_a_id === user.id && row.role_of_a === "sender") ||
+        (row.user_b_id === user.id && row.role_of_b === "sender")
       )
     )
       throw new NotFoundError();

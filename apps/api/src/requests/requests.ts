@@ -3,6 +3,8 @@ import type { Kysely, Transaction } from "kysely";
 
 import { transition, type Actor, type Channel } from "../audit/index.js";
 import { withSerializableTx } from "../db/serializable.js";
+import { monthToDateSpend } from "../plans/cap-window.js";
+import type { PlanDatabase } from "../plans/schema.js";
 import { requestMachine } from "./machine.js";
 import type { RequestDatabase, RequestStatus } from "./schema.js";
 import {
@@ -56,12 +58,14 @@ export interface SubmitRequestInput {
   /**
    * Already spent in this category for the cap's period.
    *
-   * Supplied by the caller rather than computed here. A monthly cap needs a
-   * month boundary, and the PRD fixes a timezone for schedules and digests
-   * but not for cap windows — so rather than pick one and bake it in, this
-   * takes the number and the decision stays where it can be made properly.
+   * Optional since issue #92 was decided: left out, it is computed from the
+   * plan version's own `cap_timezone`, which is where the month boundary now
+   * lives. A caller may still pass one — a simulation, or a classification
+   * being replayed against a window that has since moved.
    */
-  readonly spendToDate: Money;
+  readonly spendToDate?: Money;
+  /** The instant the cap window is measured from. Defaults to now. */
+  readonly now?: Date;
   readonly recurringRule?: RecurringRuleSnapshot | null;
 }
 
@@ -171,6 +175,21 @@ export async function submitRequest<DB extends RequestDatabase>(
 
     const planVersion = await planVersionInForce(trx, input.relationshipId);
 
+    // The cap window comes from the plan version's timezone, not from this
+    // machine's clock or the caller's (issue #92).
+    const spendToDate =
+      input.spendToDate ??
+      // Kysely's DB parameter is invariant, so a Transaction<RequestDatabase>
+      // is not a Kysely<PlanDatabase> to the type system even though every
+      // table this reads is present in both. Same documented cast as
+      // elsewhere in this module.
+      (await monthToDateSpend(trx as unknown as Kysely<PlanDatabase>, {
+        relationshipId: input.relationshipId,
+        categoryId: input.categoryId,
+        currency: input.amount.currency,
+        ...(input.now === undefined ? {} : { now: input.now }),
+      }));
+
     const tier = classify({
       request: {
         amount: input.amount,
@@ -178,7 +197,7 @@ export async function submitRequest<DB extends RequestDatabase>(
         isEmergency: input.isEmergency ?? false,
       },
       planVersion,
-      spendToDate: input.spendToDate,
+      spendToDate,
       recurringRule: input.recurringRule ?? null,
     });
 

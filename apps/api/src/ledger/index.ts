@@ -11,8 +11,11 @@ export {
 } from "./balance.js";
 export {
   IdempotencyConflictError,
+  MAX_COLLISION_ATTEMPTS,
   UnbalancedPostingError,
+  isPostKeyRace,
   post,
+  postWithin,
   requestHashOf,
   type PostEntry,
   type PostRequest,

@@ -1,3 +1,4 @@
+import { requestPaths } from "./request-document.js";
 import { z } from "zod";
 import { RequestCodeSchema, VerifyCodeSchema } from "../identity/service.js";
 import { buildOpenApiDocument } from "../openapi.js";
@@ -29,7 +30,7 @@ function json(schema: z.ZodType) {
  */
 export function buildHttpOpenApiDocument() {
   const baseline = buildOpenApiDocument();
-  const paths: Record<string, unknown> = { ...baseline.paths };
+  const paths: Record<string, unknown> = { ...baseline.paths, ...requestPaths() };
   for (const route of [
     {
       path: "/auth/otp/request",

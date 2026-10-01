@@ -4,6 +4,7 @@ import type { AuditDatabase } from "../audit/schema.js";
 import type { PlanDatabase } from "../plans/schema.js";
 import type { RelationshipDatabase } from "../relationships/schema.js";
 import type { RequestDatabase } from "../requests/schema.js";
+import type { TransactionTable } from "../transactions/schema.js";
 
 /**
  * The typed database schema Kysely builds against, mirroring
@@ -60,6 +61,7 @@ export interface LedgerEntryTable {
 
 export interface Database
   extends AuditDatabase, RelationshipDatabase, PlanDatabase, RequestDatabase {
+  transaction: TransactionTable;
   ledger_account: LedgerAccountTable;
   ledger_transaction: LedgerTransactionTable;
   ledger_entry: LedgerEntryTable;

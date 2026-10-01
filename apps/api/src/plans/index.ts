@@ -4,7 +4,9 @@ export {
   type PlanDatabase,
   type PlanVersionTable,
 } from "./schema.js";
+export { monthToDateSpend, type MonthToDateSpendInput } from "./cap-window.js";
 export {
+  InvalidCapTimezoneError,
   SYSTEM_CATEGORY_NAMES,
   createPlan,
   editPlan,

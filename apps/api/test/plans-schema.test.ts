@@ -93,8 +93,8 @@ async function fixture(): Promise<{
       [only(rel, "a relationship").id],
     );
     const { rows: version } = await c.query<{ id: string }>(
-      `insert into plan_version (plan_id, version_number, created_by)
-       values ($1, 1, $2) returning id`,
+      `insert into plan_version (plan_id, version_number, created_by, cap_timezone)
+       values ($1, 1, $2, 'America/Guatemala') returning id`,
       [only(plan, "a plan").id, userId],
     );
     const { rows: cat } = await c.query<{ id: string }>(
@@ -210,7 +210,8 @@ describe("version numbering", () => {
     const { planId, userId } = await fixture();
     expect(
       await failureCode(
-        `insert into plan_version (plan_id, version_number, created_by) values ($1, 1, $2)`,
+        `insert into plan_version (plan_id, version_number, created_by, cap_timezone)
+         values ($1, 1, $2, 'America/Guatemala')`,
         { values: [planId, userId] },
       ),
     ).toBe(UNIQUE_VIOLATION);
@@ -226,7 +227,8 @@ describe("version numbering", () => {
     const { planId, userId } = await fixture();
     expect(
       await failureCode(
-        `insert into plan_version (plan_id, version_number, created_by) values ($1, 0, $2)`,
+        `insert into plan_version (plan_id, version_number, created_by, cap_timezone)
+         values ($1, 0, $2, 'America/Guatemala')`,
         { values: [planId, userId] },
       ),
     ).toBe(CHECK_VIOLATION);
@@ -236,7 +238,8 @@ describe("version numbering", () => {
     const { planId } = await fixture();
     expect(
       await failureCode(
-        `insert into plan_version (plan_id, version_number, created_by) values ($1, 2, $2)`,
+        `insert into plan_version (plan_id, version_number, created_by, cap_timezone)
+         values ($1, 2, $2, 'America/Guatemala')`,
         { values: [planId, crypto.randomUUID()] },
       ),
     ).toBe(FOREIGN_KEY_VIOLATION);
