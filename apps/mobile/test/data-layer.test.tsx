@@ -89,7 +89,7 @@ describe("data-layer architecture (K2.24)", () => {
           <HomeScreen />
         </ScreenData>,
       ),
-    ).toThrow("not implemented");
+    ).toThrow("not yet merged");
   });
 
   it("the fixture and stub both satisfy the ScreenDataProvider interface", () => {
@@ -112,12 +112,14 @@ describe("data-layer architecture (K2.24)", () => {
   });
 
   it("realProvider throws 'not implemented' on every method", () => {
-    expect(() => realProvider.getHomeData()).toThrow("not implemented");
-    expect(() => realProvider.getApprovalData()).toThrow("not implemented");
-    expect(() => realProvider.getGoalData()).toThrow("not implemented");
-    expect(() => realProvider.getHistoryData()).toThrow("not implemented");
-    expect(() => realProvider.getAssistantData()).toThrow("not implemented");
-    expect(() => realProvider.getRelationshipsData()).toThrow("not implemented");
+    // The notReady() message names the blocker (K3.16/K3.17) and the
+    // fallback — assert on the stable prefix, not the whole sentence.
+    expect(() => realProvider.getHomeData()).toThrow("not yet merged");
+    expect(() => realProvider.getApprovalData()).toThrow("not yet merged");
+    expect(() => realProvider.getGoalData()).toThrow("not yet merged");
+    expect(() => realProvider.getHistoryData()).toThrow("not yet merged");
+    expect(() => realProvider.getAssistantData()).toThrow("not yet merged");
+    expect(() => realProvider.getRelationshipsData()).toThrow("not yet merged");
   });
 
   it("amounts pass through as opaque strings — the provider never formats money", () => {
