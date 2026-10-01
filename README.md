@@ -76,3 +76,5 @@ The stack and the reasons behind it are recorded as ADRs:
 - Never hand-edit `pnpm-lock.yaml`; regenerate it with `pnpm install`.
 - `apps/api/src/ledger/`, `packages/money/`, and `db/` are owned by the CTO/ledger builders — do not touch them unless your ticket says so.
 - See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+
+<!-- staging: Railway builds from apps/api/Dockerfile; migrations run as the pre-deploy command (node dist/migrate.mjs). -->
