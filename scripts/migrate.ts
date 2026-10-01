@@ -100,7 +100,14 @@ async function main(): Promise<void> {
   }
   // Refuse to migrate a database whose name does not end in _test or _dev.
   // This is the last line of defense against a mispointed DATABASE_URL.
-  assertSafeDatabase(connectionString);
+  //
+  // Exception (K2.43): the Docker image's migrate entrypoint runs in the
+  // deploy pipeline against the staging database, whose name does not end
+  // in _test/_dev. The pipeline sets RAICES_ALLOW_ANY_DB=1 explicitly —
+  // a developer's laptop never has this set, so the local protection stays.
+  if (process.env["RAICES_ALLOW_ANY_DB"] !== "1") {
+    assertSafeDatabase(connectionString);
+  }
 
   const pool = new pg.Pool({ connectionString });
   try {
