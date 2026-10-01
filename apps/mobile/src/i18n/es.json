@@ -41,6 +41,10 @@
       "title": "El servicio no está disponible en este momento."
     }
   },
+  "app": {
+    "getStarted": "Comenzar",
+    "name": "Raíces"
+  },
   "approval": {
     "approve": "Aprobar {{amount}}",
     "decline": "Ahorita no",

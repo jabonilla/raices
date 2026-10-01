@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 const I18N_DIR = join(__dirname, "../src/i18n");
 const SRC_DIR = join(__dirname, "../src");
+// app/ holds the expo-router entry points (index, _layout) which also call
+// t(). The unused-key scan must cover it — app.name/app.getStarted were
+// wrongly flagged as dead because only src/ was walked (PR #96 CI fix).
+const APP_DIR = join(__dirname, "../app");
 
 interface FlatMap {
   [key: string]: string;
@@ -70,6 +74,7 @@ function findUsedKeys(): { used: Set<string>; prefixes: Set<string> } {
     }
   };
   walk(SRC_DIR);
+  walk(APP_DIR);
   return { used, prefixes };
 }
 
