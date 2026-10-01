@@ -47,7 +47,7 @@ function main(): void {
     execFileSync(
       "npx",
       ["expo", "export", "--platform", "android", "--no-bytecode", "--output-dir", tmpDir],
-      { cwd: MOBILE_DIR, stdio: "pipe" }
+      { cwd: MOBILE_DIR, stdio: "pipe" },
     );
 
     // Find the JS bundle

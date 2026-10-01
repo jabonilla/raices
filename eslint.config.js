@@ -150,7 +150,7 @@ export default tseslint.config(
   },
   {
     // Config files are plain JS and are not part of the typechecked program.
-    files: ["**/*.js"],
+    files: ["**/*.js", "**/*.mjs"],
     extends: [tseslint.configs.disableTypeChecked],
   },
   {

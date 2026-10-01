@@ -51,14 +51,14 @@ async function main(): Promise<void> {
       "or a smartphone app — she uses WhatsApp only.\n\n" +
       "Raíces solves this: Carlos sends from the US, María receives via " +
       "WhatsApp. Every transfer states its purpose and passes an approval " +
-      "gate. The money moves on a balanced ledger — debits always equal credits."
+      "gate. The money moves on a balanced ledger — debits always equal credits.",
   );
 
   // Step 1: Health check
   narrate(
     "STEP 1 — The system is alive",
     "We start by confirming the API is running. This is the liveness " +
-      "check — it needs nothing but the process itself."
+      "check — it needs nothing but the process itself.",
   );
   const health = await api("GET", "/health");
   show("GET /health", health);
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
       "decoration — it's how we prevent misuse and how María knows " +
       "what the money is for.\n\n" +
       "The request is created but the money has NOT moved yet. " +
-      "It's waiting for approval."
+      "It's waiting for approval.",
   );
   const request = (await api("POST", "/transfers", {
     recipient: "maria",
@@ -92,9 +92,12 @@ async function main(): Promise<void> {
       "Why? Because cross-border money movement is irreversible. The " +
       "approval gate is the last human checkpoint before the ledger " +
       "records an immutable transaction. This is a product decision, " +
-      "not a technical limitation."
+      "not a technical limitation.",
   );
-  const approval = (await api("POST", `/transfers/${request.id}/approve`, {})) as Record<string, unknown>;
+  const approval = (await api("POST", `/transfers/${request.id}/approve`, {})) as Record<
+    string,
+    unknown
+  >;
   show("POST /transfers/:id/approve", approval);
 
   // Step 4: Ledger
@@ -107,7 +110,7 @@ async function main(): Promise<void> {
       "code that could have a bug — it's enforced by a database trigger. " +
       "If the numbers don't balance, the write is rejected. The ledger " +
       "is append-only: we never update or delete, only add. This is how " +
-      "we prove to auditors and partners that every cent is accounted for."
+      "we prove to auditors and partners that every cent is accounted for.",
   );
   const ledger = await api("GET", `/transfers/${request.id}/ledger`);
   show("GET /transfers/:id/ledger", ledger);
@@ -122,7 +125,7 @@ async function main(): Promise<void> {
       "This is why Raíces works for the real world — we meet recipients " +
       "where they already are.\n\n" +
       "(In this demo, the WhatsApp is fake. In production, it's the " +
-      "real WhatsApp Business API.)"
+      "real WhatsApp Business API.)",
   );
   show("WhatsApp to +50255501111", {
     body: "You have $25.00 waiting for groceries. Reply YES to accept.",
@@ -138,7 +141,7 @@ async function main(): Promise<void> {
       "This is where YOU come in, as a settlement partner. Raíces " +
       "handles the ledger, the approval, and the WhatsApp. You handle " +
       "the last mile: getting physical money to María. We settle with " +
-      "you in bulk, on terms we agree."
+      "you in bulk, on terms we agree.",
   );
   show("Settlement", {
     from: "settlement:usd",
@@ -153,7 +156,7 @@ async function main(): Promise<void> {
     "That's Raíces: $25.00 from Carlos in the US to María in Guatemala, " +
       "with a stated purpose, an approval gate, a balanced ledger, and " +
       "a WhatsApp notification. No app for María. Full audit trail for us.\n\n" +
-      "Questions?"
+      "Questions?",
   );
 }
 

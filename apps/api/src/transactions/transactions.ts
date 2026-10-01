@@ -236,7 +236,7 @@ export async function approveAndRecord(
 
         // The request id is the idempotency key, per the ticket: one request
         // can only ever produce one posting, and the key says so.
-        const posted = await postWithin(raw as unknown as Transaction<Database>, {
+        const posted = await postWithin(raw, {
           idempotencyKey: input.requestId,
           description: request.description,
           occurredAt,

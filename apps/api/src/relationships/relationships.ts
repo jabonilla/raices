@@ -260,7 +260,7 @@ async function changeStatus(
 
           // Unreachable today for the reason above; see the PR for the
           // mutation result rather than assuming this branch is exercised.
-          if ((result.numUpdatedRows ?? 0n) === 0n) {
+          if (result.numUpdatedRows === 0n) {
             throw new StaleRelationshipStateError(input.relationshipId, from);
           }
         },

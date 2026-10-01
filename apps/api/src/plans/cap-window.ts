@@ -102,18 +102,20 @@ export async function monthToDateSpend<DB extends PlanDatabase>(
 
   if (row.currencies > 1) {
     throw new Error(
-      `Category ${input.categoryId} has approved spend in more than one currency this ` +
+      `Category ${String(input.categoryId)} has approved spend in more than one currency this ` +
         `period. A cap is in one currency; summing across them would invent an exchange rate.`,
     );
   }
 
   const found = row.currency;
   if (found === null || !isCurrency(found)) {
-    throw new Error(`Category ${input.categoryId} has spend in unsupported currency ${found}.`);
+    throw new Error(
+      `Category ${String(input.categoryId)} has spend in unsupported currency ${String(found)}.`,
+    );
   }
   if (found !== input.currency) {
     throw new Error(
-      `Category ${input.categoryId} has spend in ${found}, but the cap window was asked ` +
+      `Category ${String(input.categoryId)} has spend in ${found}, but the cap window was asked ` +
         `for in ${input.currency}.`,
     );
   }

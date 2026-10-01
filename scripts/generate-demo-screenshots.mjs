@@ -1,3 +1,4 @@
+import console from "node:console";
 /**
  * K2.40: Generate partner demo screenshots (HTML).
  *
