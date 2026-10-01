@@ -1,3 +1,9 @@
+import {
+  ScreenRelationshipSchema,
+  ScreenRequestSchema,
+  ScreenTransactionSchema,
+  pageOf,
+} from "./read-models.js";
 import { requestPaths } from "./request-document.js";
 import { z } from "zod";
 import { RequestCodeSchema, VerifyCodeSchema } from "../identity/service.js";
@@ -122,6 +128,39 @@ export function buildHttpOpenApiDocument() {
             description: "Updated member relationship",
             content: json(RelationshipResponseSchema),
           },
+          ...errorResponses,
+        },
+      },
+    };
+  }
+  for (const [path, schema] of [
+    ["relationships", pageOf(ScreenRelationshipSchema)],
+    ["requests", pageOf(ScreenRequestSchema)],
+    ["history", pageOf(ScreenRequestSchema)],
+    ["transactions/{transactionId}", ScreenTransactionSchema],
+  ] as const) {
+    paths[`/screen/${path}`] = {
+      get: {
+        security,
+        parameters: path.includes("{")
+          ? [
+              {
+                name: "transactionId",
+                in: "path",
+                required: true,
+                schema: { type: "string", format: "uuid" },
+              },
+            ]
+          : [
+              { name: "before", in: "query", schema: { type: "string" } },
+              {
+                name: "limit",
+                in: "query",
+                schema: { type: "integer", minimum: 1, maximum: 100, default: 30 },
+              },
+            ],
+        responses: {
+          "200": { description: "Screen data", content: json(schema) },
           ...errorResponses,
         },
       },

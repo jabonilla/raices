@@ -1,3 +1,4 @@
+import { registerReadModelRoutes } from "./http/read-models.js";
 import { registerRequestRoutes, type RequestHttpOptions } from "./http/requests.js";
 import { registerIdentityRoutes, type IdentityHttpOptions } from "./http/identity.js";
 import { installAuthorization } from "./http/policy.js";
@@ -211,6 +212,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   if (options.demoApi !== undefined) {
     registerIdentityRoutes(app, { ...options.demoApi, rateLimitCheck: checkRateLimit });
     registerRequestRoutes(app, options.demoApi);
+    registerReadModelRoutes(app, options.demoApi);
   }
 
   return app;
