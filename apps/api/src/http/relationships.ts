@@ -19,7 +19,7 @@ import {
 } from "../relationships/relationships.js";
 import { findOrCreateUserByPhone } from "../relationships/users.js";
 import { UndeclaredTransitionError } from "../audit/index.js";
-import { bearerToken } from "./identity.js";
+import { installAuthorization, principal, authorizedRelationship } from "./policy.js";
 import { requestFingerprint, type DurableReceiptStore } from "./idempotency.js";
 import { InviteLimiter } from "./invite-limit.js";
 
@@ -51,9 +51,7 @@ export function registerRelationshipRoutes(
   options: RelationshipHttpOptions,
 ): void {
   const { db, identity } = options;
-  async function caller(request: FastifyRequest): Promise<string> {
-    return (await identity.authenticate(bearerToken(request))).id;
-  }
+  const router = installAuthorization(app, { db, identity });
   async function member(userId: string, id: string) {
     const row = await db
       .selectFrom("relationship")
@@ -105,77 +103,89 @@ export function registerRelationshipRoutes(
       },
     );
   }
-  app.get("/relationships", async (request, reply) => {
-    const userId = await caller(request);
-    z.object({}).strict().parse(request.query);
-    const rows = await db
-      .selectFrom("relationship")
-      .selectAll()
-      .where((eb) => eb.or([eb("user_a_id", "=", userId), eb("user_b_id", "=", userId)]))
-      .orderBy("seq", "desc")
-      .execute();
-    reply.header("cache-control", "no-store");
-    return rows.map(view);
+  router.route({
+    method: "GET",
+    url: "/relationships",
+    policy: { kind: "sender" },
+    handler: async (request, reply) => {
+      const userId = principal(request).id;
+      z.object({}).strict().parse(request.query);
+      const rows = await db
+        .selectFrom("relationship")
+        .selectAll()
+        .where((eb) => eb.or([eb("user_a_id", "=", userId), eb("user_b_id", "=", userId)]))
+        .orderBy("seq", "desc")
+        .execute();
+      reply.header("cache-control", "no-store");
+      return rows.map(view);
+    },
   });
-  app.get("/relationships/:id", async (request, reply) => {
-    const userId = await caller(request);
-    const { id } = RelationshipParamsSchema.parse(request.params);
-    z.object({}).strict().parse(request.query);
-    reply.header("cache-control", "no-store");
-    return view(await member(userId, id));
+  router.route({
+    method: "GET",
+    url: "/relationships/:id",
+    policy: { kind: "relationship" },
+    handler: async (request, reply) => {
+      z.object({}).strict().parse(request.query);
+      reply.header("cache-control", "no-store");
+      return view(authorizedRelationship(request));
+    },
   });
-  app.post("/relationships/invite", async (request, reply) => {
-    const userId = await caller(request);
-    const body = InviteSchema.parse(request.body);
-    const self = await db
-      .selectFrom("app_user")
-      .select("phone")
-      .where("id", "=", userId)
-      .executeTakeFirstOrThrow();
-    if (self.phone === body.phone) throw new BadRequestError("Cannot invite yourself.");
-    const result = await write(request, userId, "invite", body, async () => {
-      await options.inviteLimiter.check(
-        userId,
-        options.clientIp?.(request) ?? request.raw.socket.remoteAddress ?? "unknown",
-      );
-      const recipient = await findOrCreateUserByPhone(db, { phone: body.phone, role: "recipient" });
-      return invite(db, {
-        senderId: userId,
-        recipientId: recipient.id,
-        ...(body.displayName === undefined ? {} : { displayName: body.displayName }),
+  router.route({
+    method: "POST",
+    url: "/relationships/invite",
+    policy: { kind: "sender" },
+    handler: async (request, reply) => {
+      const userId = principal(request).id;
+      const body = InviteSchema.parse(request.body);
+      const self = await db
+        .selectFrom("app_user")
+        .select("phone")
+        .where("id", "=", userId)
+        .executeTakeFirstOrThrow();
+      if (self.phone === body.phone) throw new BadRequestError("Cannot invite yourself.");
+      const result = await write(request, userId, "invite", body, async () => {
+        await options.inviteLimiter.check(
+          userId,
+          options.clientIp?.(request) ?? request.raw.socket.remoteAddress ?? "unknown",
+        );
+        const recipient = await findOrCreateUserByPhone(db, {
+          phone: body.phone,
+          role: "recipient",
+        });
+        return invite(db, {
+          senderId: userId,
+          recipientId: recipient.id,
+          ...(body.displayName === undefined ? {} : { displayName: body.displayName }),
+        });
       });
-    });
-    return reply
-      .header("cache-control", "no-store")
-      .code(201)
-      .send(InviteResponseSchema.parse(result));
+      return reply
+        .header("cache-control", "no-store")
+        .code(201)
+        .send(InviteResponseSchema.parse(result));
+    },
   });
   for (const action of ["accept", "pause", "terminate"] as const) {
-    app.post(`/relationships/:id/${action}`, async (request, reply) => {
-      const userId = await caller(request);
-      const { id } = RelationshipParamsSchema.parse(request.params);
-      const body = EmptyWriteSchema.parse(request.body ?? {});
-      const row = await member(userId, id);
-      if (
-        action === "accept" &&
-        !(
-          (row.user_a_id === userId && row.role_of_a === "recipient") ||
-          (row.user_b_id === userId && row.role_of_b === "recipient")
-        )
-      )
-        throw new NotFoundError();
-      const result = await write(request, userId, action, { ...body, id }, async () => {
-        const input = {
-          relationshipId: id,
-          actor: { kind: "user" as const, id: userId },
-          channel: "app" as const,
-        };
-        if (action === "accept") await activate(db, input);
-        else if (action === "pause") await pause(db, input);
-        else await terminate(db, input);
-        return view(await member(userId, id));
-      });
-      return reply.header("cache-control", "no-store").send(result);
+    router.route({
+      method: "POST",
+      url: `/relationships/:id/${action}`,
+      policy: { kind: "relationship", recipientOnly: action === "accept" },
+      handler: async (request, reply) => {
+        const userId = principal(request).id;
+        const { id } = RelationshipParamsSchema.parse(request.params);
+        const body = EmptyWriteSchema.parse(request.body ?? {});
+        const result = await write(request, userId, action, { ...body, id }, async () => {
+          const input = {
+            relationshipId: id,
+            actor: { kind: "user" as const, id: userId },
+            channel: "app" as const,
+          };
+          if (action === "accept") await activate(db, input);
+          else if (action === "pause") await pause(db, input);
+          else await terminate(db, input);
+          return view(await member(userId, id));
+        });
+        return reply.header("cache-control", "no-store").send(result);
+      },
     });
   }
 }
