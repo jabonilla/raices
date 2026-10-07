@@ -1,0 +1,84 @@
+{
+  "node": "v22.23.3",
+  "seed": "deterministic operations; production random full-jitter retries",
+  "reports": [
+    {
+      "scenario": "shared-clearing",
+      "operations": 500,
+      "workers": 64,
+      "budgetMs": 2000,
+      "holdMs": 0,
+      "wallMs": 309.70027400000004,
+      "failed": 0,
+      "failureRate": 0,
+      "p50Ms": 30.697469999999953,
+      "p99Ms": 117.96929399999999,
+      "successP99Ms": 117.96929399999999,
+      "maxMs": 127.91567299999997,
+      "attemptDistribution": {
+        "1": 500
+      }
+    },
+    {
+      "scenario": "duplicate-replay",
+      "operations": 500,
+      "workers": 64,
+      "budgetMs": 2000,
+      "holdMs": 0,
+      "wallMs": 226.408729,
+      "failed": 0,
+      "failureRate": 0,
+      "p50Ms": 21.62668100000019,
+      "p99Ms": 64.30952100000013,
+      "successP99Ms": 64.30952100000013,
+      "maxMs": 80.11023300000011,
+      "attemptDistribution": {
+        "1": 305,
+        "2": 195
+      }
+    },
+    {
+      "scenario": "hot-domain-row",
+      "operations": 500,
+      "workers": 64,
+      "budgetMs": 2000,
+      "holdMs": 5,
+      "wallMs": 3227.9029680000003,
+      "failed": 36,
+      "failureRate": 0.072,
+      "p50Ms": 5.940892000000076,
+      "p99Ms": 2013.9172990000002,
+      "successP99Ms": 1908.5484409999997,
+      "maxMs": 2014.272765,
+      "attemptDistribution": {
+        "1": 325,
+        "2": 2,
+        "3": 8,
+        "4": 13,
+        "5": 10,
+        "6": 7,
+        "7": 6,
+        "8": 16,
+        "9": 12,
+        "10": 11,
+        "11": 14,
+        "12": 8,
+        "13": 5,
+        "14": 6,
+        "15": 8,
+        "16": 3,
+        "17": 5,
+        "18": 9,
+        "19": 12,
+        "20": 9,
+        "21": 5,
+        "22": 5,
+        "24": 1
+      }
+    }
+  ],
+  "invariants": {
+    "balanced": true,
+    "noLostHotWrites": true
+  }
+}
