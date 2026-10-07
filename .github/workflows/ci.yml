@@ -67,6 +67,22 @@ jobs:
             sleep 1
           done
 
+      - name: Run migrations from the image (pre-deploy entrypoint)
+        run: |
+          # K2.45: prove dist/migrate.mjs works from inside the image, the
+          # same way Railway's pre-deploy command runs it. Twice: the first
+          # applies, the second must be a no-op (idempotent re-runs).
+          docker run --name migrate-ci \
+            --link pg-ci:postgres \
+            -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raices \
+            -e MIGRATIONS_TARGET_DB=raices \
+            raices-api:ci node dist/migrate.mjs
+          docker run --name migrate-ci2 \
+            --link pg-ci:postgres \
+            -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raices \
+            -e MIGRATIONS_TARGET_DB=raices \
+            raices-api:ci node dist/migrate.mjs
+
       - name: Start the API container
         run: |
           docker run -d --name api-ci \
@@ -78,23 +94,45 @@ jobs:
 
       - name: Assert /health and /ready
         run: |
+          # K2.45: the old loops never failed the step — 30 failed curls
+          # still exited 0, so a broken image went green. Each loop now
+          # records success and the step exits 1 if the endpoint never
+          # answered. A build that succeeds and an image that runs are
+          # different claims; this checks the second.
           # /health needs no DB: must be 200 as soon as the process is up.
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/health && break
+            if curl -sf http://localhost:3000/health; then
+              HEALTH_OK=1
+              break
+            fi
             sleep 1
           done
+          if [ "${HEALTH_OK:-0}" != "1" ]; then
+            echo "/health never returned 200"
+            exit 1
+          fi
           # /ready needs Postgres: 200 once the DB is reachable.
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/ready && break
+            if curl -sf http://localhost:3000/ready; then
+              READY_OK=1
+              break
+            fi
             sleep 1
           done
+          if [ "${READY_OK:-0}" != "1" ]; then
+            echo "/ready never returned 200"
+            exit 1
+          fi
           echo "health: $(curl -s http://localhost:3000/health)"
-          echo "ready:  $(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/ready)"
+          echo "ready:  $(curl -s http://localhost:3000/ready)"
 
-      - name: Show API logs on failure
+      - name: Show container logs on failure
         if: failure()
-        run: docker logs api-ci
+        run: |
+          docker logs migrate-ci || true
+          docker logs migrate-ci2 || true
+          docker logs api-ci || true
 
       - name: Cleanup
         if: always()
-        run: docker rm -f api-ci pg-ci || true
+        run: docker rm -f api-ci pg-ci migrate-ci migrate-ci2 || true
