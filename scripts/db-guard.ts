@@ -1,5 +1,5 @@
 /**
- * Safety guard for local database tooling (migrate, seed).
+ * Safety guard for local database tooling (seed).
  *
  * These scripts must never run against a production database. The guard
  * parses the database name out of the connection string and refuses anything
@@ -7,7 +7,10 @@
  * opened, so a typo in DATABASE_URL fails fast instead of migrating the
  * wrong database.
  *
- * The test suite has its own stricter guard (tests/pg.ts) that requires
+ * The deploy-time migration runner (scripts/migrate.ts) deliberately does not
+ * use this: it must run against production-named databases, so it instead
+ * requires MIGRATIONS_TARGET_DB to name the exact intended database. The
+ * test suite has its own stricter guard (tests/pg.ts) that requires
  * `_test` exactly; tests must never share a database with dev fixtures.
  */
 

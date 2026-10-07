@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
-import { assertSafeDatabase } from "./db-guard.js";
+import { databaseNameFromUrl, UnsafeDatabaseError } from "./db-guard.js";
 
 export const MIGRATIONS_DIR = fileURLToPath(new URL("../db/migrations", import.meta.url));
 
@@ -93,21 +93,49 @@ export async function applyMigrations(
   return results;
 }
 
+/**
+ * Confirm the operator's explicit intent to migrate this database.
+ *
+ * The deploy-time migration runner must by definition run against a
+ * production-named database, so the `_test`/`_dev` suffix check used by local
+ * tooling (scripts/db-guard.ts) can never be satisfiable here. Instead, the
+ * operator sets MIGRATIONS_TARGET_DB to the exact database name they intend
+ * to migrate, and it must match the name parsed from the connection string.
+ * Missing, empty, or mismatched is a loud refusal before any connection is
+ * opened.
+ */
+export function assertMigrationTarget(
+  connectionString: string,
+  target: string | undefined,
+): void {
+  const name = databaseNameFromUrl(connectionString);
+  if (target === undefined || target === "") {
+    throw new UnsafeDatabaseError(
+      `refusing to migrate database "${name}": MIGRATIONS_TARGET_DB is not set. ` +
+        `Set it to the exact database name you intend to migrate.`,
+    );
+  }
+  if (target !== name) {
+    throw new UnsafeDatabaseError(
+      `refusing to migrate database "${name}": MIGRATIONS_TARGET_DB is "${target}". ` +
+        `Set it to the exact database name you intend to migrate.`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const connectionString = process.env["DATABASE_URL"];
   if (connectionString === undefined || connectionString === "") {
     throw new Error("DATABASE_URL is not set. Copy .env.example and fill it in.");
   }
-  // Refuse to migrate a database whose name does not end in _test or _dev.
-  // This is the last line of defense against a mispointed DATABASE_URL.
-  //
-  // Exception (K2.43): the Docker image's migrate entrypoint runs in the
-  // deploy pipeline against the staging database, whose name does not end
-  // in _test/_dev. The pipeline sets RAICES_ALLOW_ANY_DB=1 explicitly —
-  // a developer's laptop never has this set, so the local protection stays.
-  if (process.env["RAICES_ALLOW_ANY_DB"] !== "1") {
-    assertSafeDatabase(connectionString);
-  }
+  // Deploy-time guard: the operator must name the database they intend to
+  // migrate, and it must match DATABASE_URL. This replaces the _test/_dev
+  // suffix check (and K2.43's RAICES_ALLOW_ANY_DB bypass with it), which can
+  // never be satisfiable for a deploy pipeline that by definition runs
+  // against production-named databases. A bypass flag teaches whoever hits
+  // it to set the flag in the wrong place; naming the target stays
+  // satisfiable while keeping the deliberateness.
+  assertMigrationTarget(connectionString, process.env["MIGRATIONS_TARGET_DB"]);
 
   const pool = new pg.Pool({ connectionString });
   try {
