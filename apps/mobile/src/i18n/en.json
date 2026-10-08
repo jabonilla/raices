@@ -73,9 +73,6 @@
     "sendNow": "Send now"
   },
   "demo": {
-    "apiChecking": "API: checking…",
-    "apiReachable": "API: connected",
-    "apiUnreachable": "API: unreachable",
     "banner": "DEMO MODE · Sample data · No real money"
   },
   "goal": {

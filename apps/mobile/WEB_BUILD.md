@@ -17,17 +17,19 @@ The Pages build sets:
 The deployed API exposes `/health`, `/ready`, `/openapi.json`, and
 `/webhooks/channel` — it has **no screen-data endpoints**. So:
 
-- **Real:** every app boot probes the live API's `/health` endpoint
-  (`src/data/apiHealth.ts`). The demo banner shows the live result —
-  green dot = the server answered, red = unreachable. This is a genuine
-  network call to the staging API, not an assertion.
+- **Real:** the build is configured with `EXPO_PUBLIC_DATA_PROVIDER=real`
+  and `EXPO_PUBLIC_API_URL=https://api-production-9b18.up.railway.app`.
 - **Demo data:** screen content comes from the fixture dataset, and every
   screen carries the banner "MODO DEMO · Datos de prueba · Sin dinero real".
   No one seeing this demo can mistake it for real money.
-- **CORS limitation (verified 2026-10-08):** the API sends no
-  `Access-Control-Allow-Origin` headers, so the browser probe uses
-  `mode: "no-cors"` — it proves reachability, not the /ready status code.
-  If K3 adds CORS for the Pages origin, switch to a normal fetch.
+- **No live API status dot (CORB limitation, verified 2026-10-08):** a
+  reachability probe was tried and removed. Chrome's CORB blocks
+  cross-origin `no-cors` fetches of the API's JSON responses, so the probe
+  always reported "unreachable" with the API up — a wrong red dot is worse
+  than no dot. When K3 adds
+  `Access-Control-Allow-Origin: https://jabonilla.github.io` to `/health`
+  and `/ready`, a real probe can return (see git history for
+  `src/data/apiHealth.ts`) with a normal fetch that reads status codes.
 
 When K3 ships screen endpoints, `src/data/realProvider.ts` gets fetch + map
 implementations; the demo banner stays until the data is real.

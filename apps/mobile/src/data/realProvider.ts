@@ -16,13 +16,15 @@ import type { ScreenDataProvider } from "./provider";
  * ("MODO DEMO · Datos de prueba · Sin dinero real") so no one mistakes it
  * for real money.
  *
- * The "real" in this provider is the connectivity layer: every app boot
- * performs a genuine /health probe against EXPO_PUBLIC_API_URL (see
- * ./apiHealth.ts and the DemoBanner), so the API status shown is live,
- * not asserted. When K3 ships screen endpoints, the screen methods below
- * get fetch + map implementations; the mappers translate K3's payloads to
- * the ./types.ts shapes, and amounts stay opaque strings (never call
- * packages/money format()).
+ * The "real" in this provider is the build configuration: it is selected by
+ * EXPO_PUBLIC_DATA_PROVIDER=real and pointed at EXPO_PUBLIC_API_URL. A live
+ * API reachability probe was tried and removed — Chrome's CORB blocks
+ * cross-origin no-cors fetches of the API's JSON responses, so the probe
+ * always reported unreachable with the API up. When K3 adds CORS for the
+ * Pages origin, a real probe can return (see git history for apiHealth.ts).
+ * When K3 ships screen endpoints, the screen methods below get fetch + map
+ * implementations; the mappers translate K3's payloads to the ./types.ts
+ * shapes, and amounts stay opaque strings (never call packages/money format()).
  *
  * Base URL: EXPO_PUBLIC_API_URL (e.g. https://api-production-9b18.up.railway.app).
  * The URL is public by design — it is the endpoint address, not a credential.

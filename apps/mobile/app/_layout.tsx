@@ -9,15 +9,18 @@ import { tokens } from "../src/theme/tokens";
  * Root layout (k2/web-live).
  *
  * The DemoBanner sits above every screen: this is the web demo build, so
- * every screen carries the "MODO DEMO · Sin dinero real" marker plus the
- * live API reachability state. No screen can render without it.
+ * every screen carries the "MODO DEMO · Sin dinero real" marker. No screen
+ * can render without it.
+ *
+ * The Stack header is hidden: the screens have their own chrome, and the
+ * default header leaks the route name ("index") as a stray label.
  */
 export default function Layout(): JSX.Element {
   return (
     <View style={styles.root}>
       <DemoBanner />
       <View style={styles.content}>
-        <Stack />
+        <Stack screenOptions={{ headerShown: false }} />
       </View>
     </View>
   );
