@@ -1,0 +1,78 @@
+# Web demo deploy (k2/web-live)
+#
+# Publishes the Expo web build to GitHub Pages. Manual dispatch only —
+# José controls when partners see a new version. The build points at the
+# LIVE staging API (https://api-production-9b18.up.railway.app) with the
+# real provider selected; screen content is the labeled demo dataset
+# (the API has no screen-data endpoints yet — see
+# apps/mobile/src/data/realProvider.ts).
+#
+# The demo URL is https://jabonilla.github.io/raices/ (project Pages site,
+# served from /raices/ — hence the baseUrl experiment in app.json).
+#
+# Pages must be enabled once: Settings → Pages → Source = "GitHub Actions".
+
+name: Web demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Build web export (live API, real provider)
+        run: pnpm web:build
+        env:
+          EXPO_PUBLIC_DATA_PROVIDER: real
+          EXPO_PUBLIC_API_URL: https://api-production-9b18.up.railway.app
+
+      - name: Fail the build if the bundle leaks secrets
+        run: |
+          # The API URL is public by design; tokens and keys must never be here.
+          if grep -rEio "sk_live|pk_live|secret|bearer [A-Za-z0-9._-]{10,}|xox[bap]-" dist-web/; then
+            echo "secret-like string found in the web bundle"
+            exit 1
+          fi
+          echo "no secret-like strings in dist-web"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/mobile/dist-web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

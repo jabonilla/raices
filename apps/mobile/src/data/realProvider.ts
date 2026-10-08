@@ -1,94 +1,40 @@
+import { fixtureProvider } from "./fixtureProvider";
 import type { ScreenDataProvider } from "./provider";
-import type {
-  ApprovalData,
-  AssistantData,
-  GoalData,
-  HistoryData,
-  HomeData,
-  RelationshipsData,
-} from "./types";
 
 /**
- * Real provider (K2.41): calls the live API.
+ * Real provider (k2/web-live).
  *
  * Selected by env var: EXPO_PUBLIC_DATA_PROVIDER=real. The fixture provider
- * stays the default until the API is live.
+ * stays the default for local development.
  *
- * API contract (coordinated with K3 — K3.16/K3.17):
- * The endpoints below follow the domain types in ./types.ts. Payload shapes
- * are NOT invented here; they map 1:1 from K3's read models. If K3's
- * endpoints return different shapes, update the mappers below, not the
- * types — the types are the contract the screens depend on.
+ * HONEST STATUS — read before assuming this fetches screens from the API:
+ * the deployed API exposes /health, /ready, /openapi.json, and
+ * /webhooks/channel. It has NO screen-data endpoints (K3's screen endpoints
+ * were never built; the "K3.16/K3.17" ticket numbers in the old docstring
+ * were aspirational, not merged). So screen content in this build comes from
+ * the fixture dataset, and every screen carries the demo banner
+ * ("MODO DEMO · Datos de prueba · Sin dinero real") so no one mistakes it
+ * for real money.
  *
- * Base URL: EXPO_PUBLIC_API_URL (e.g., https://api.raices.example.com).
- * Auth: Bearer token from EXPO_PUBLIC_API_TOKEN (demo only — production
- * uses the phone-OTP flow; see the standing rule about credentials).
+ * The "real" in this provider is the connectivity layer: every app boot
+ * performs a genuine /health probe against EXPO_PUBLIC_API_URL (see
+ * ./apiHealth.ts and the DemoBanner), so the API status shown is live,
+ * not asserted. When K3 ships screen endpoints, the screen methods below
+ * get fetch + map implementations; the mappers translate K3's payloads to
+ * the ./types.ts shapes, and amounts stay opaque strings (never call
+ * packages/money format()).
  *
- * The loading, error, and offline states (K2.21) now have real causes:
- * - loading: fetch in flight
- * - error: non-2xx response or network failure (shows states.errorBody copy)
- * - offline: navigator.onLine === false or fetch throws TypeError
- * Each is reachable and shows the right copy via the screenState prop.
+ * Base URL: EXPO_PUBLIC_API_URL (e.g. https://api-production-9b18.up.railway.app).
+ * The URL is public by design — it is the endpoint address, not a credential.
+ * Auth tokens are runtime-only (phone-OTP flow), never bundled.
  */
 
 /**
- * Real data provider (K2.41): structure for the future API-backed
- * implementation, selectable via EXPO_PUBLIC_DATA_PROVIDER=real.
- *
- * Currently every method throws notReady() — K3's endpoints (K3.16/K3.17)
- * are merged but the mobile wiring is not yet done. The fixture provider
- * remains the default.
- *
- * Migration path (when wiring):
- * 1. Set EXPO_PUBLIC_API_URL to the API base URL
- * 2. Implement each method with fetch + map (see implementation notes below)
- * 3. The mappers translate K3's payloads to the ./types.ts shapes
- * 4. Amounts stay as opaque strings — never call packages/money format()
+ * Real data provider: screen methods serve the labeled demo dataset;
+ * connectivity is genuinely live (see ./apiHealth.ts).
  */
-
-/**
- * Real provider implementation.
- *
- * NOTE: The methods below are async, but the ScreenDataProvider interface
- * is still synchronous (K2.24). The async migration happens when K3's
- * endpoints land — the screens already have loading/error/offline states.
- * For now, these throw with a clear message directing to the fixture.
- *
- * To complete K2.41 when K3.16/K3.17 merge:
- * 1. Change ScreenDataProvider methods to return Promise<T>
- * 2. Update screens to await (they already handle screenState)
- * 3. Replace the throw below with the actual fetch + map logic
- * 4. The mappers translate K3's payloads to the ./types.ts shapes
- */
-function notReady(): never {
-  throw new Error(
-    "realProvider: K3's endpoints (K3.16/K3.17) are not yet merged. " +
-      "Use the fixture provider (default) until the API is live. " +
-      "See the K2.41 implementation notes in this file for the migration path.",
-  );
-}
-
 export const realProvider: ScreenDataProvider = {
-  getHomeData(): HomeData {
-    // Future: const json = await apiGet<HomeApiResponse>("/api/home");
-    // return mapHome(json);
-    return notReady();
-  },
-  getApprovalData(): ApprovalData {
-    return notReady();
-  },
-  getGoalData(): GoalData {
-    return notReady();
-  },
-  getHistoryData(): HistoryData {
-    return notReady();
-  },
-  getAssistantData(): AssistantData {
-    return notReady();
-  },
-  getRelationshipsData(): RelationshipsData {
-    return notReady();
-  },
+  ...fixtureProvider,
 };
 
 /**
