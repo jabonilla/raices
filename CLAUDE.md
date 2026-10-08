@@ -29,6 +29,15 @@ If a ticket conflicts with this file, this file wins. Stop and flag the conflict
 9. **Relationships are many-to-many.** Never assume one sender per recipient or one recipient per sender.
 10. **Write the test first** for anything touching money, state machines, or the ledger.
 
+## VERIFICATION
+
+11. **A check you have not watched fail is not evidence.** Before relying on any guard, test, lint rule or CI job, break the thing it protects on purpose and confirm it goes red, then restore. State in the PR that you saw it fail.
+12. **"Green" is a claim about what ran, not about what is true.** A test that does not compile does not run. A job whose probes all fail can still exit 0. A command that backgrounds its children can discard their failures. Check what actually executed, not what the badge says.
+13. **When a fix changes an interface, find every caller — especially tests.** A regression test left calling an old signature stops compiling, stops running, and leaves the defect it was written for unprotected while everything looks fine.
+14. **Report "done" only when the change is on main and the relevant checks have been seen to pass for the right reason.** If you are blocked, say blocked.
+
+These exist because all four happened here: `make verify` discarded typecheck and lint failures for days; the image smoke test passed while shipping a container that could not boot; and the RED-3 redaction regression stopped compiling when its own fix changed a signature, leaving a confirmed leak unguarded under a green badge.
+
 ## When you are unsure
 
 Stop and ask in the PR or issue. Do not invent business rules. Do not guess at money semantics. **Never fix a failing money test by changing its assertion.**
