@@ -61,11 +61,19 @@ jobs:
             -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=raices \
             postgres:16-alpine
-          # Wait for Postgres to accept connections.
+          # Wait for Postgres to accept connections. Fatal if it never does —
+          # an exhausted loop must not silently continue to the migrate step.
           for i in $(seq 1 30); do
-            docker exec pg-ci pg_isready -U postgres && break
+            if docker exec pg-ci pg_isready -U postgres; then
+              PG_OK=1
+              break
+            fi
             sleep 1
           done
+          if [ "${PG_OK:-0}" != "1" ]; then
+            echo "Postgres never became ready"
+            exit 1
+          fi
 
       - name: Run migrations from the image (pre-deploy entrypoint)
         run: |
@@ -134,8 +142,8 @@ jobs:
             echo "/ready never returned 200"
             exit 1
           fi
-          echo "health: $(curl -s http://localhost:3000/health)"
-          echo "ready:  $(curl -s http://localhost:3000/ready)"
+          # Both probes answered 200 (curl -sf printed each body above).
+          # No trailing echo: a bare `curl -s` here would mask a failure.
 
       - name: Show container logs on failure
         if: failure()
