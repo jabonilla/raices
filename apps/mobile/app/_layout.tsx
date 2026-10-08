@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import type { JSX } from "react";
 import { StyleSheet, View } from "react-native";
 
+import "../src/i18n";
 import { DemoBanner } from "../src/components/DemoBanner";
 import { tokens } from "../src/theme/tokens";
 
