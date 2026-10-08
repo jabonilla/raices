@@ -72,16 +72,27 @@ jobs:
           # K2.45: prove dist/migrate.mjs works from inside the image, the
           # same way Railway's pre-deploy command runs it. Twice: the first
           # applies, the second must be a no-op (idempotent re-runs).
-          docker run --name migrate-ci \
-            --link pg-ci:postgres \
-            -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raices \
-            -e MIGRATIONS_TARGET_DB=raices \
-            raices-api:ci node dist/migrate.mjs
-          docker run --name migrate-ci2 \
-            --link pg-ci:postgres \
-            -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raices \
-            -e MIGRATIONS_TARGET_DB=raices \
-            raices-api:ci node dist/migrate.mjs
+          # Retried up to 3x: the container can briefly race Postgres
+          # startup, and migrations are idempotent so re-running is safe.
+          # A deterministic failure (e.g. the target guard refusing) fails
+          # every attempt and still fails the step.
+          run_migrate() {
+            local name="$1"
+            for attempt in 1 2 3; do
+              docker rm -f "$name" > /dev/null 2>&1 || true
+              if docker run --name "$name" \
+                --link pg-ci:postgres \
+                -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raices \
+                -e MIGRATIONS_TARGET_DB=raices \
+                raices-api:ci node dist/migrate.mjs; then
+                return 0
+              fi
+              sleep 3
+            done
+            return 1
+          }
+          run_migrate migrate-ci
+          run_migrate migrate-ci2
 
       - name: Start the API container
         run: |
