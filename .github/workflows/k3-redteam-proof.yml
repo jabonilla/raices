@@ -1,0 +1,21 @@
+name: K3 red-team repair proof
+on:
+  push:
+    branches: [k3/redaction-regression-proof]
+permissions:
+  contents: read
+jobs:
+  redteam:
+    name: All red-team files against Postgres
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm exec eslint tests/redteam/*.ts
+      - run: pnpm exec vitest run --config tests/redteam/vitest.config.ts
