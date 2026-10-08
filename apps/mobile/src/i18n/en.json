@@ -72,6 +72,12 @@
     "back": "Back",
     "sendNow": "Send now"
   },
+  "demo": {
+    "apiChecking": "API: checking…",
+    "apiReachable": "API: connected",
+    "apiUnreachable": "API: unreachable",
+    "banner": "DEMO MODE · Sample data · No real money"
+  },
   "goal": {
     "remaining": "{{remaining}} to go for the {{total}}",
     "savedSoFar": "Saved so far",

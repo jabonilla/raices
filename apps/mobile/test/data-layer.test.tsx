@@ -82,14 +82,18 @@ describe("data-layer architecture (K2.24)", () => {
     }
   });
 
-  it("the content state DOES need the provider — the stub throws there", () => {
+  it("the content state DOES need the provider — the real provider serves demo data", () => {
+    // k2/web-live: the real provider no longer throws — it serves the
+    // labeled demo dataset (the API has no screen endpoints yet). The
+    // content state still needs a provider; a missing one throws loudly
+    // (see ScreenDataContext), but the real provider is a valid one.
     expect(() =>
       render(
         <ScreenData provider={realProvider}>
           <HomeScreen />
         </ScreenData>,
       ),
-    ).toThrow("not yet merged");
+    ).not.toThrow();
   });
 
   it("the fixture and stub both satisfy the ScreenDataProvider interface", () => {
@@ -111,15 +115,18 @@ describe("data-layer architecture (K2.24)", () => {
     }
   });
 
-  it("realProvider throws 'not implemented' on every method", () => {
-    // The notReady() message names the blocker (K3.16/K3.17) and the
-    // fallback — assert on the stable prefix, not the whole sentence.
-    expect(() => realProvider.getHomeData()).toThrow("not yet merged");
-    expect(() => realProvider.getApprovalData()).toThrow("not yet merged");
-    expect(() => realProvider.getGoalData()).toThrow("not yet merged");
-    expect(() => realProvider.getHistoryData()).toThrow("not yet merged");
-    expect(() => realProvider.getAssistantData()).toThrow("not yet merged");
-    expect(() => realProvider.getRelationshipsData()).toThrow("not yet merged");
+  it("realProvider serves the labeled demo dataset (no screen endpoints exist yet)", () => {
+    // k2/web-live: the deployed API has no screen-data endpoints, so the
+    // real provider serves the fixture dataset. The honesty lives in the
+    // demo banner ("MODO DEMO · Sin dinero real") and the live /health
+    // probe — not in pretending the screens are API-backed. When K3 ships
+    // screen endpoints, these assertions get fetch-mock cases instead.
+    expect(realProvider.getHomeData()).toEqual(fixtureProvider.getHomeData());
+    expect(realProvider.getApprovalData()).toEqual(fixtureProvider.getApprovalData());
+    expect(realProvider.getGoalData()).toEqual(fixtureProvider.getGoalData());
+    expect(realProvider.getHistoryData()).toEqual(fixtureProvider.getHistoryData());
+    expect(realProvider.getAssistantData()).toEqual(fixtureProvider.getAssistantData());
+    expect(realProvider.getRelationshipsData()).toEqual(fixtureProvider.getRelationshipsData());
   });
 
   it("amounts pass through as opaque strings — the provider never formats money", () => {

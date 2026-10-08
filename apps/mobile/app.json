@@ -1,5 +1,8 @@
 {
   "expo": {
+    "experiments": {
+      "baseUrl": "/raices"
+    },
     "name": "Raíces",
     "slug": "raices",
     "version": "0.0.0",
