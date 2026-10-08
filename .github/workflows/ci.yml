@@ -118,9 +118,20 @@ jobs:
           # records success and the step exits 1 if the endpoint never
           # answered. A build that succeeds and an image that runs are
           # different claims; this checks the second.
+          #
+          # K3's curl finding: the probe requires an explicit HTTP 200
+          # (not just "curl didn't error") and carries connect/max timeouts
+          # so a hung endpoint cannot hang the step.
+          probe_200() {
+            local url="$1"
+            local code
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              --connect-timeout 5 --max-time 10 "$url") || return 1
+            [ "$code" = "200" ]
+          }
           # /health needs no DB: must be 200 as soon as the process is up.
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000/health; then
+            if probe_200 http://localhost:3000/health; then
               HEALTH_OK=1
               break
             fi
@@ -132,7 +143,7 @@ jobs:
           fi
           # /ready needs Postgres: 200 once the DB is reachable.
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000/ready; then
+            if probe_200 http://localhost:3000/ready; then
               READY_OK=1
               break
             fi
@@ -142,8 +153,8 @@ jobs:
             echo "/ready never returned 200"
             exit 1
           fi
-          # Both probes answered 200 (curl -sf printed each body above).
-          # No trailing echo: a bare `curl -s` here would mask a failure.
+          # Both probes answered 200. No trailing echo: a bare `curl -s`
+          # here would mask a failure.
 
       - name: Show container logs on failure
         if: failure()
