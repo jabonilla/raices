@@ -61,11 +61,46 @@ jobs:
             -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=raices \
             postgres:16-alpine
-          # Wait for Postgres to accept connections.
+          # Wait for Postgres to accept connections. Fatal if it never does —
+          # an exhausted loop must not silently continue to the migrate step.
           for i in $(seq 1 30); do
-            docker exec pg-ci pg_isready -U postgres && break
+            if docker exec pg-ci pg_isready -U postgres; then
+              PG_OK=1
+              break
+            fi
             sleep 1
           done
+          if [ "${PG_OK:-0}" != "1" ]; then
+            echo "Postgres never became ready"
+            exit 1
+          fi
+
+      - name: Run migrations from the image (pre-deploy entrypoint)
+        run: |
+          # K2.45: prove dist/migrate.mjs works from inside the image, the
+          # same way Railway's pre-deploy command runs it. Twice: the first
+          # applies, the second must be a no-op (idempotent re-runs).
+          # Retried up to 3x: the container can briefly race Postgres
+          # startup, and migrations are idempotent so re-running is safe.
+          # A deterministic failure (e.g. the target guard refusing) fails
+          # every attempt and still fails the step.
+          run_migrate() {
+            local name="$1"
+            for attempt in 1 2 3; do
+              docker rm -f "$name" > /dev/null 2>&1 || true
+              if docker run --name "$name" \
+                --link pg-ci:postgres \
+                -e DATABASE_URL=postgresql://postgres:postgres@postgres:5432/raices \
+                -e MIGRATIONS_TARGET_DB=raices \
+                raices-api:ci node dist/migrate.mjs; then
+                return 0
+              fi
+              sleep 3
+            done
+            return 1
+          }
+          run_migrate migrate-ci
+          run_migrate migrate-ci2
 
       - name: Start the API container
         run: |
@@ -78,23 +113,56 @@ jobs:
 
       - name: Assert /health and /ready
         run: |
+          # K2.45: the old loops never failed the step — 30 failed curls
+          # still exited 0, so a broken image went green. Each loop now
+          # records success and the step exits 1 if the endpoint never
+          # answered. A build that succeeds and an image that runs are
+          # different claims; this checks the second.
+          #
+          # K3's curl finding: the probe requires an explicit HTTP 200
+          # (not just "curl didn't error") and carries connect/max timeouts
+          # so a hung endpoint cannot hang the step.
+          probe_200() {
+            local url="$1"
+            local code
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              --connect-timeout 5 --max-time 10 "$url") || return 1
+            [ "$code" = "200" ]
+          }
           # /health needs no DB: must be 200 as soon as the process is up.
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/health && break
+            if probe_200 http://localhost:3000/health; then
+              HEALTH_OK=1
+              break
+            fi
             sleep 1
           done
+          if [ "${HEALTH_OK:-0}" != "1" ]; then
+            echo "/health never returned 200"
+            exit 1
+          fi
           # /ready needs Postgres: 200 once the DB is reachable.
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/ready && break
+            if probe_200 http://localhost:3000/ready; then
+              READY_OK=1
+              break
+            fi
             sleep 1
           done
-          echo "health: $(curl -s http://localhost:3000/health)"
-          echo "ready:  $(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/ready)"
+          if [ "${READY_OK:-0}" != "1" ]; then
+            echo "/ready never returned 200"
+            exit 1
+          fi
+          # Both probes answered 200. No trailing echo: a bare `curl -s`
+          # here would mask a failure.
 
-      - name: Show API logs on failure
+      - name: Show container logs on failure
         if: failure()
-        run: docker logs api-ci
+        run: |
+          docker logs migrate-ci || true
+          docker logs migrate-ci2 || true
+          docker logs api-ci || true
 
       - name: Cleanup
         if: always()
-        run: docker rm -f api-ci pg-ci || true
+        run: docker rm -f api-ci pg-ci migrate-ci migrate-ci2 || true
