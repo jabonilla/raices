@@ -104,10 +104,7 @@ export async function applyMigrations(
  * Missing, empty, or mismatched is a loud refusal before any connection is
  * opened.
  */
-export function assertMigrationTarget(
-  connectionString: string,
-  target: string | undefined,
-): void {
+export function assertMigrationTarget(connectionString: string, target: string | undefined): void {
   const name = databaseNameFromUrl(connectionString);
   if (target === undefined || target === "") {
     throw new UnsafeDatabaseError(

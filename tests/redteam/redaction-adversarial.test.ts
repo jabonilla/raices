@@ -1,9 +1,15 @@
 import { Writable } from "node:stream";
 import fc from "fast-check";
 import pino from "../../apps/api/node_modules/pino/pino.js";
-import { expect, it } from "vitest";
+import { expect, expectTypeOf, it } from "vitest";
 import { CENSOR, REDACT_OPTIONS, censorSensitiveKeys } from "../../apps/api/src/logging.js";
-import { setSpanExporter, startSpan, type ExportedSpan } from "../../apps/api/src/telemetry.js";
+import {
+  setSpanExporter,
+  startSpan,
+  type ExportedSpan,
+  type Span,
+  type SpanStatusCode,
+} from "../../apps/api/src/telemetry.js";
 
 it("fuzzes nesting depth and arrays through the real Pino configuration", () => {
   fc.assert(
@@ -33,18 +39,53 @@ it("fuzzes nesting depth and arrays through the real Pino configuration", () => 
   );
 });
 
-it("does not leak caller-controlled span status messages", () => {
+it("exports only a status code and redacts diagnostic attributes through the current API", () => {
+  expectTypeOf<Parameters<Span["setStatus"]>>().toEqualTypeOf<[code: SpanStatusCode]>();
   const exported: ExportedSpan[] = [];
   setSpanExporter((span) => {
     exported.push(span);
   });
   try {
     const span = startSpan("redteam.error");
-    span.setStatus(
+    span.setStatus("error");
+    span.setAttribute("diagnostic", {
+      phone: "+50251234567",
+      display_name: "Synthetic Secret Name",
+      amount: "9007199254740993",
+    });
+    span.end();
+    expect(exported).toHaveLength(1);
+    expect(exported[0]?.status).toEqual({ code: "error" });
+    expect(exported[0]?.attributes["diagnostic"]).toEqual({
+      phone: CENSOR,
+      display_name: CENSOR,
+      amount: CENSOR,
+    });
+    const output = JSON.stringify(exported);
+    expect(output).not.toContain("+50251234567");
+    expect(output).not.toContain("Synthetic Secret Name");
+    expect(output).not.toContain("9007199254740993");
+  } finally {
+    setSpanExporter(() => {});
+  }
+});
+
+it("ignores a legacy free-text status argument supplied by an untyped caller", () => {
+  const exported: ExportedSpan[] = [];
+  setSpanExporter((span) => {
+    exported.push(span);
+  });
+  try {
+    const span = startSpan("redteam.legacy-status");
+    // Deliberately cross the TypeScript boundary as an old JavaScript caller
+    // could. Ordinary typed calls above use the current one-argument API.
+    Reflect.apply(span.setStatus.bind(span), undefined, [
       "error",
       "phone=+50251234567 display_name=Synthetic Secret Name amount=9007199254740993",
-    );
+    ]);
     span.end();
+    expect(exported).toHaveLength(1);
+    expect(exported[0]?.status).toEqual({ code: "error" });
     const output = JSON.stringify(exported);
     expect(output).not.toContain("+50251234567");
     expect(output).not.toContain("Synthetic Secret Name");

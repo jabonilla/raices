@@ -1,8 +1,11 @@
-# Production image for @raices/api (K2.29).
+# Production image for @raices/api (K2.29, K2.45).
 #
 # Multi-stage:
 #   1. builder — installs all deps, bundles the API + workspace code with esbuild
-#   2. final   — non-root, production deps only, single bundled JS file
+#   2. final   — non-root, node + the two bundles + SQL migrations. No
+#                node_modules: every dependency is bundled into the .mjs
+#                files (K2.45), so there is nothing to drift between the
+#                bundle's imports and the image's installed set.
 #
 # Build from the repo root:
 #   docker build -f apps/api/Dockerfile -t raices-api .
@@ -54,19 +57,9 @@ RUN groupadd -r appuser --gid 1001 \
 
 WORKDIR /app
 
-# Production dependencies only: the bundle keeps third-party imports
-# external (fastify etc. can't be bundled — dynamic require), so they must
-# be present in node_modules. Workspace packages are IN the bundle.
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY apps/api/package.json apps/api/package.json
-COPY packages/money/package.json packages/money/package.json
-COPY packages/channels/package.json packages/channels/package.json
-COPY packages/settlement/package.json packages/settlement/package.json
-COPY packages/templates/package.json packages/templates/package.json
-
-RUN corepack enable \
-  && pnpm install --frozen-lockfile --prod \
-  && pnpm store prune
+# No dependency install here (K2.45): the bundles are fully self-contained,
+# so the final stage ships no node_modules at all. The builder stage above
+# still needs the manifests + lockfile to resolve and bundle everything.
 
 # The bundled app. Owned by appuser so the non-root process can read it.
 COPY --from=builder --chown=appuser:appuser /app/apps/api/dist/index.mjs ./dist/index.mjs
