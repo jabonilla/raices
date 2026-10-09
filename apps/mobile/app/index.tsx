@@ -19,7 +19,7 @@ export default function Index(): JSX.Element {
         accessibilityRole="button"
         style={styles.button}
         onPress={() => {
-          router.push("/relationships");
+          router.push("/home");
         }}
       >
         <Text style={styles.buttonText}>{getStarted}</Text>

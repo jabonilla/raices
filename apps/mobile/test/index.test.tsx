@@ -18,9 +18,9 @@ describe("placeholder screen", () => {
     expect(screen.getByText("Raíces")).toBeTruthy();
   });
 
-  it("navigates to the relationship list on Comenzar", () => {
+  it("navigates to home on Comenzar (K2.48: app entry)", () => {
     render(<Index />);
     fireEvent.click(screen.getByRole("button", { name: "Comenzar" }));
-    expect(push).toHaveBeenCalledWith("/relationships");
+    expect(push).toHaveBeenCalledWith("/home");
   });
 });
