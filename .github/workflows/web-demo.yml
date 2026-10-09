@@ -65,24 +65,12 @@ jobs:
 
       - name: SPA fallback for deep links
         run: |
-          # GitHub Pages serves 404.html for unknown paths. Without this,
-          # opening /raices/relationships directly (or refreshing it) shows
-          # GitHub's raw 404 instead of the app. This redirects deep links
-          # back to /raices/ where the router takes over.
-          cat > dist-web/404.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <title>Raíces</title>
-              <script>
-                window.location.replace("/raices/");
-              </script>
-            </head>
-            <body></body>
-          </html>
-          EOF
-          echo "404.html written"
+          # GitHub Pages serves 404.html for unknown paths. Copy index.html so
+          # deep links (e.g. /raices/history) boot the app at the requested
+          # URL — expo-router then parses the path client-side and renders
+          # the right screen instead of bouncing to landing.
+          cp dist-web/index.html dist-web/404.html
+          echo "404.html written (copy of index.html)"
 
       - uses: actions/upload-pages-artifact@v3
         with:
