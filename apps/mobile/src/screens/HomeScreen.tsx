@@ -190,10 +190,13 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.s4,
   },
   balanceLabel: {
-    fontSize: tokens.type.bodySmall.size,
-    fontWeight: tokens.type.bodySmall.weight,
-    lineHeight: tokens.type.bodySmall.lineHeight,
-    fontFamily: tokens.font.body,
+    // K2.49 (B+): micro-label. Mono, uppercase, tracked. Never below 12px.
+    fontSize: tokens.type.microLabel.size,
+    fontWeight: tokens.type.microLabel.weight,
+    lineHeight: tokens.type.microLabel.lineHeight,
+    fontFamily: tokens.font.mono,
+    letterSpacing: tokens.type.microLabel.letterSpacing,
+    textTransform: "uppercase",
     color: tokens.color.textMutedInverse,
   },
   balanceAmount: {
@@ -282,7 +285,8 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: tokens.color.oro,
+    // K2.49 (B+): oro is pending-only. Progress is in-progress: tierra.
+    backgroundColor: tokens.color.tierra,
     borderRadius: tokens.radius.full,
   },
   goalMeta: {

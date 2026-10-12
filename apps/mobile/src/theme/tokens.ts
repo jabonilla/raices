@@ -37,7 +37,15 @@ export const tokens = {
     textMuted: "#888885",
     textInverse: "#FFFFFF",
     surface0: "#F7F6F3",
-    surface1: "#FFFFFF",
+    // K2.49 (B+): card surface is crema, not white. Replaces white everywhere.
+    surface1: "#FAF8F3",
+    // K2.49 (B+): inset surface for motivo blocks, nested surfaces.
+    surfaceInset: "#F2EFE7",
+    // K2.49 (B+): bronze gradient, RESERVED for arrival and milestone
+    // completion only. It is the emotional peak; decorating anything else
+    // with it destroys the meaning.
+    bronce1: "#8A5A2B",
+    bronce2: "#C08A4A",
     surface2: "#F2F1EE",
     border: "#E8E7E3",
     borderStrong: "#D4D3CF",
@@ -45,6 +53,8 @@ export const tokens = {
   font: {
     display: "'Plus Jakarta Sans', system-ui, sans-serif",
     body: "'Inter', system-ui, sans-serif",
+    // K2.49 (B+): mono for micro-labels ("ESTE MES", "MOTIVO", "LLEGADA").
+    mono: "'SF Mono', 'Roboto Mono', ui-monospace, monospace",
   },
   type: {
     display: { size: 32, weight: "600", lineHeight: 38 },
@@ -57,8 +67,14 @@ export const tokens = {
     label: { size: 12, weight: "500", lineHeight: 17 },
     // Money amounts: tabular numerals, dedicated scale. Components receive
     // amounts as pre-formatted strings — never format money here (issue #12).
-    amount: { size: 28, weight: "600", lineHeight: 31 },
-    amountLarge: { size: 40, weight: "600", lineHeight: 40 },
+    // K2.49 (B+): hierarchy. Amounts lead at 40-46px against 13px metadata.
+    // This single change is most of the B+ difference.
+    amount: { size: 40, weight: "600", lineHeight: 44 },
+    amountLarge: { size: 46, weight: "600", lineHeight: 50 },
+    // K2.49 (B+): micro-labels ("ESTE MES", "MOTIVO", "LLEGADA"). Mono,
+    // uppercase, 0.1em tracking. NEVER below 12px. Must scale with OS
+    // font settings (no allowFontScaling={false}).
+    microLabel: { size: 12, weight: "500", lineHeight: 16, letterSpacing: 1.2 },
   },
   spacing: {
     s1: 4,

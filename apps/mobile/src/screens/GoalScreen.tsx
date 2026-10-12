@@ -245,7 +245,8 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: tokens.color.oro,
+    // K2.49 (B+): oro is pending-only. Progress is in-progress: tierra.
+    backgroundColor: tokens.color.tierra,
     borderRadius: tokens.radius.full,
   },
   remaining: {
@@ -278,7 +279,8 @@ const styles = StyleSheet.create({
     borderColor: tokens.color.tierra,
   },
   stageCurrent: {
-    borderColor: tokens.color.oro,
+    // K2.49 (B+): oro is pending-only. Current stage is in-progress: tierra.
+    borderColor: tokens.color.tierra,
   },
   stageUpcoming: {
     opacity: 0.5,
