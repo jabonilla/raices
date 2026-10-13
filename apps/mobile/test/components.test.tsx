@@ -165,7 +165,11 @@ describe("token values", () => {
   it("matches the design system spec", () => {
     expect(tokens.color.tierra).toBe("#2D4A3E");
     expect(tokens.color.oro).toBe("#C4922A");
-    expect(tokens.type.amount.size).toBe(28);
+    // K2.49 (B+): hierarchy. Amounts lead at 40-46px.
+    expect(tokens.type.amount.size).toBe(40);
+    expect(tokens.type.amountLarge.size).toBe(46);
+    expect(tokens.color.surface1).toBe("#FAF8F3");
+    expect(tokens.color.bronce1).toBe("#8A5A2B");
     expect(tokens.spacing.s4).toBe(16);
     expect(tokens.radius.md).toBe(10);
     expect(tokens.touchTarget.min).toBe(44);
