@@ -19,6 +19,7 @@ Pexels photo page and credit the photographer before publishing.
 ## Accepted (7)
 
 ### 1. Woman weaving on a backstrap loom
+
 - **Image:** https://images.pexels.com/photos/7205807/pexels-photo-7205807.jpeg
 - **Photographer:** Los Muertos Crew — **verified** via indexed Pexels photo page
 - **Source page:** https://www.pexels.com/photo/wood-person-woman-art-7205807/
@@ -30,6 +31,7 @@ Pexels photo page and credit the photographer before publishing.
   textile is beautiful on its own terms. Dignity through skill.
 
 ### 2. Weaver at the loom, second angle
+
 - **Image:** https://images.pexels.com/photos/7205812/pexels-photo-7205812.jpeg
 - **Photographer:** Los Muertos Crew — series-verified (adjacent photo IDs
   7205803/7205807/7205812, same woman, same room, same shoot; 7205803 indexed
@@ -42,6 +44,7 @@ Pexels photo page and credit the photographer before publishing.
   like a person, not a subject. Companion to #1; use one or the other, not both.
 
 ### 3. Elderly weaver at his Panajachel street stall
+
 - **Image:** https://images.pexels.com/photos/27871950/pexels-photo-27871950.jpeg
 - **Photographer:** Mario Spencer — **verified** via indexed Pexels photo page
   ("Photo by Mario Spencer on Pexels")
@@ -54,6 +57,7 @@ Pexels photo page and credit the photographer before publishing.
   stone wall say "real place" louder than any caption could.
 
 ### 4. Elderly market vendor seated at her stall
+
 - **Image:** https://images.pexels.com/photos/26088692/pexels-photo-26088692.jpeg
 - **Photographer:** UNCONFIRMED (Pexels-hosted; verify on photo page before publishing)
 - **Source:** Pexels
@@ -66,6 +70,7 @@ Pexels photo page and credit the photographer before publishing.
   "living rather than posing" looks like.
 
 ### 5. Elderly woman at the market, pineapples behind her
+
 - **Image:** https://images.pexels.com/photos/26088710/pexels-photo-26088710.jpeg
 - **Photographer:** UNCONFIRMED (Pexels-hosted; verify on photo page before publishing)
 - **Source:** Pexels
@@ -77,6 +82,7 @@ Pexels photo page and credit the photographer before publishing.
   both pity-framing and stock-smile staging.
 
 ### 6. Woman peeling fruit at her market stall
+
 - **Image:** https://images.pexels.com/photos/6482588/pexels-photo-6482588.jpeg
 - **Photographer:** UNCONFIRMED (Pexels-hosted; verify on photo page before publishing)
 - **Source:** Pexels
@@ -88,6 +94,7 @@ Pexels photo page and credit the photographer before publishing.
   wants: recipients as economic actors, not aid cases.
 
 ### 7. Street vendor with basket balanced on her head, Antigua
+
 - **Image:** https://images.pexels.com/photos/13399868/pexels-photo-13399868.jpeg
 - **Photographer:** UNCONFIRMED (Pexels-hosted; found via Pexels "antigua" search;
   verify on photo page before publishing)
@@ -146,6 +153,7 @@ re-upload when you can't confirm the source license.
 ---
 
 ## Notes for the CTO
+
 - Strongest, fully-verified picks: **#1 (Los Muertos Crew weaver)** and
   **#3 (Mario Spencer, Panajachel weaver)** — photographer confirmed, Pexels
   License confirmed, both peak "ordinary dignity."
