@@ -65,6 +65,7 @@ export function ScreenState(props: ScreenStateProps): JSX.Element {
       // Shared copy: offline is about connectivity, never about the screen.
       return (
         <StateBody
+          kind="offline"
           glyph={GLYPHS.offline}
           title={t("states.offlineTitle")}
           body={t("states.offlineBody")}
@@ -97,7 +98,7 @@ function StateBody({
   secondaryLabel,
   onSecondaryPress,
 }: {
-  readonly kind: "empty" | "error";
+  readonly kind: "empty" | "error" | "offline";
   readonly glyph: string;
   readonly title: string;
   readonly body: string;
