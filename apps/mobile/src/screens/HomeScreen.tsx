@@ -180,14 +180,19 @@ const styles = StyleSheet.create({
     marginBottom: tokens.spacing.s4,
   },
   balanceRow: {
-    flexDirection: "row",
+    // K2.49 fix (Claude review): amounts at 40px break mid-number in
+    // two-column cards ("$1,24" / "0.00"). Stacked: each amount gets full
+    // width. No adjustsFontSizeToFit — OS text scaling must be honoured.
+    flexDirection: "column",
     gap: tokens.spacing.s3,
   },
   balanceCard: {
-    flex: 1,
-    backgroundColor: tokens.color.tierraCard,
-    borderRadius: tokens.radius.lg,
-    padding: tokens.spacing.s4,
+    // K2.49 (B+): full-bleed Tierra. No inner card backgrounds — the
+    // balances sit directly on the Tierra block for a unified surface.
+    // Spacing separates them, not containers.
+    paddingVertical: tokens.spacing.s3,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.color.tierraCard,
   },
   balanceLabel: {
     // K2.49 (B+): micro-label. Mono, uppercase, tracked. Never below 12px.
@@ -224,7 +229,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.full,
     paddingHorizontal: tokens.spacing.s4,
     paddingVertical: tokens.spacing.s3,
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     marginBottom: tokens.spacing.s4,
     minHeight: tokens.touchTarget.min,
@@ -250,7 +255,7 @@ const styles = StyleSheet.create({
     marginLeft: tokens.spacing.s2,
   },
   goalTop: {
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: tokens.spacing.s3,
@@ -290,7 +295,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.full,
   },
   goalMeta: {
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-between",
     marginTop: tokens.spacing.s2,
   },
@@ -322,3 +327,6 @@ const styles = StyleSheet.create({
     height: tokens.spacing.s3,
   },
 });
+
+// Exported for the no-wrap test (K2.49).
+export const __testStyles = styles;

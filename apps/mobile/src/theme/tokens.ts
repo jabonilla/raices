@@ -53,8 +53,10 @@ export const tokens = {
   font: {
     display: "'Plus Jakarta Sans', system-ui, sans-serif",
     body: "'Inter', system-ui, sans-serif",
-    // K2.49 (B+): mono for micro-labels ("ESTE MES", "MOTIVO", "LLEGADA").
-    mono: "'SF Mono', 'Roboto Mono', ui-monospace, monospace",
+    // K2.49 (B+): mono for micro-labels. System stack prioritizes modern
+    // monos (SF Mono, Cascadia, Roboto Mono) over generic monospace.
+    // For production, load IBM Plex Mono via expo-font/Google Fonts.
+    mono: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Consolas, monospace",
   },
   type: {
     display: { size: 32, weight: "600", lineHeight: 38 },

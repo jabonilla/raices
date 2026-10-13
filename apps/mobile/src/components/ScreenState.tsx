@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import "../../src/i18n";
 import { Button } from "./Button";
+import { PhotoSlot } from "./PhotoSlot";
 import { tokens } from "../theme/tokens";
 
 /**
@@ -73,6 +74,7 @@ export function ScreenState(props: ScreenStateProps): JSX.Element {
     case "error":
       return (
         <StateBody
+          kind={props.kind}
           glyph={GLYPHS[props.kind]}
           title={props.title}
           body={props.body}
@@ -86,6 +88,7 @@ export function ScreenState(props: ScreenStateProps): JSX.Element {
 }
 
 function StateBody({
+  kind,
   glyph,
   title,
   body,
@@ -94,6 +97,7 @@ function StateBody({
   secondaryLabel,
   onSecondaryPress,
 }: {
+  readonly kind: "empty" | "error";
   readonly glyph: string;
   readonly title: string;
   readonly body: string;
@@ -108,8 +112,15 @@ function StateBody({
     // would swallow the action buttons below. Title/body/button are
     // announced individually in order (K2.23 audit).
     <View style={styles.center} accessibilityLiveRegion="polite">
-      {/* Glyphs are presentational stand-ins, like the existing category icons. */}
-      <Text style={styles.glyph}>{glyph}</Text>
+      {kind === "empty" ? (
+        // K2.49 (B+): empty state gets a photo slot. No URI yet — José picks
+        // from the 7 candidates. The fallback is a warm crema inset, not
+        // a broken frame.
+        <PhotoSlot accessibilityLabel={title} height={180} />
+      ) : (
+        /* Glyphs are presentational stand-ins, like the existing category icons. */
+        <Text style={styles.glyph}>{glyph}</Text>
+      )}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
       {primaryLabel !== undefined ? (
