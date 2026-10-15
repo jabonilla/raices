@@ -20,14 +20,12 @@ async function initiate(provider: MockSettlementProvider, key: string) {
 }
 
 async function pollToTerminal(provider: MockSettlementProvider, key: string, transferId: string) {
-  let status = "pending";
   for (let poll = 0; poll < 10; poll++) {
     const current = await provider.getStatus({
       idempotencyKey: `${key}:s:${String(poll)}`,
       transferId,
     });
-    status = current.status;
-    if (status !== "pending") return current;
+    if (current.status !== "pending") return current;
   }
   throw new Error(`transfer ${transferId} never reached a terminal state`);
 }

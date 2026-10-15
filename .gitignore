@@ -5,3 +5,4 @@ coverage/
 *.log
 .DS_Store
 .expo/
+apps/mobile/dist-web/

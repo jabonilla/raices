@@ -245,7 +245,8 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: tokens.color.oro,
+    // K2.49 (B+): oro is pending-only. Progress is in-progress: tierra.
+    backgroundColor: tokens.color.tierra,
     borderRadius: tokens.radius.full,
   },
   remaining: {
@@ -257,11 +258,14 @@ const styles = StyleSheet.create({
     marginTop: tokens.spacing.s2,
   },
   stagesTitle: {
-    fontSize: tokens.type.heading2.size,
-    fontWeight: tokens.type.heading2.weight,
-    lineHeight: tokens.type.heading2.lineHeight,
-    fontFamily: tokens.font.display,
-    color: tokens.color.textPrimary,
+    // K2.49 (B+): micro-label. Mono, uppercase, tracked.
+    fontSize: tokens.type.microLabel.size,
+    fontWeight: tokens.type.microLabel.weight,
+    lineHeight: tokens.type.microLabel.lineHeight,
+    fontFamily: tokens.font.mono,
+    letterSpacing: tokens.type.microLabel.letterSpacing,
+    textTransform: "uppercase",
+    color: tokens.color.textSecondary,
     marginTop: tokens.spacing.s6,
     marginBottom: tokens.spacing.s3,
   },
@@ -278,7 +282,8 @@ const styles = StyleSheet.create({
     borderColor: tokens.color.tierra,
   },
   stageCurrent: {
-    borderColor: tokens.color.oro,
+    // K2.49 (B+): oro is pending-only. Current stage is in-progress: tierra.
+    borderColor: tokens.color.tierra,
   },
   stageUpcoming: {
     opacity: 0.5,
@@ -293,7 +298,10 @@ const styles = StyleSheet.create({
     marginRight: tokens.spacing.s3,
   },
   stageCircleDone: {
-    backgroundColor: tokens.color.approvedBg,
+    // K2.49 (B+): bronce is reserved for milestone completion. The done
+    // circle is the emotional peak — solid bronce1 (gradient needs a
+    // native library; the color carries the meaning).
+    backgroundColor: tokens.color.bronce1,
   },
   stageCircleCurrent: {
     backgroundColor: tokens.color.crema,
@@ -305,7 +313,8 @@ const styles = StyleSheet.create({
     color: tokens.color.textSecondary,
   },
   stageNumberDone: {
-    color: tokens.color.approved,
+    // White check on bronce — the milestone peak.
+    color: tokens.color.textInverse,
   },
   stageInfo: {
     flex: 1,
