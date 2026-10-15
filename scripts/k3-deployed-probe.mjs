@@ -22,7 +22,10 @@ await check('404 envelope and no leaks', async () => {
   const { response, body } = await probe('/__k3_20_missing__');
   assert.equal(response.status, 404);
   const parsed = JSON.parse(body);
-  for (const field of ['code', 'message', 'requestId']) assert.equal(typeof parsed[field], 'string');
+  assert.equal(typeof parsed.error, 'object', 'missing error envelope');
+  assert.notEqual(parsed.error, null, 'missing error envelope');
+  for (const field of ['code', 'message', 'requestId']) assert.equal(typeof parsed.error[field], 'string', `error.${field} must be a string`);
+  assert.equal(parsed.error.code, 'not_found');
   assert.doesNotMatch(body, /stack trace|DATABASE_URL|postgres(?:ql)?:\/\/|password=|SELECT \* FROM/i);
 });
 await check('bad webhook signature rejected', async () => {
