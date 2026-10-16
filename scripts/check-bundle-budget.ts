@@ -52,13 +52,24 @@ function expoCliPath(): string {
 }
 
 /** Sum the shipped JS bundles (never source maps) for Android. */
-function androidJsBundleBytes(exportDir: string): number {
+export function androidJsBundleBytes(exportDir: string): number {
   const jsDir = join(exportDir, "_expo", "static", "js", "android");
   let total = 0;
+  let bundleCount = 0;
   for (const name of readdirSync(jsDir)) {
     if (name.endsWith(".js") && !name.endsWith(".js.map")) {
       total += statSync(join(jsDir, name)).size;
+      bundleCount += 1;
     }
+  }
+  // CI-6: an export directory with no .js bundles must fail, not read as
+  // zero bytes. Zero bundles means the export layout changed or broke —
+  // treating it as "within budget" would let a missing bundle pass CI.
+  if (bundleCount === 0) {
+    throw new Error(
+      `bundle-budget: FAIL — no .js bundles found in ${jsDir}. The expo export ` +
+        "produced no Android bundles; refusing to treat an empty export as within budget.",
+    );
   }
   return total;
 }
@@ -92,4 +103,10 @@ function main(): void {
   }
 }
 
-main();
+// Only run the export when executed directly (`pnpm check:bundle-budget`);
+// the unit test imports androidJsBundleBytes without triggering an export.
+const invokedDirectly =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+if (invokedDirectly) {
+  main();
+}
