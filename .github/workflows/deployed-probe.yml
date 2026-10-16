@@ -1,5 +1,8 @@
 name: Deployed API probe
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
@@ -29,6 +32,28 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
+
+      # The workflow_run trigger fires when CI finishes, not when Railway
+      # finishes deploying, so it can probe the PREVIOUS deployment. Poll
+      # /health until its sha matches the commit CI just verified, bounded
+      # at ~5 minutes. Manual dispatches skip this (no expected SHA).
+      - name: Wait for deployed commit
+        if: github.event_name == 'workflow_run'
+        env:
+          BASE_URL: ${{ inputs.base_url || 'https://api-production-9b18.up.railway.app' }}
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          for i in $(seq 1 30); do
+            SHA=$(curl -sf "$BASE_URL/health" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).sha||'')}catch(e){}})")
+            if [ "$SHA" = "$EXPECTED_SHA" ]; then
+              echo "Deployed commit matches $EXPECTED_SHA"
+              exit 0
+            fi
+            echo "Waiting for $EXPECTED_SHA (got '${SHA:-unreachable}'), attempt $i/30"
+            sleep 10
+          done
+          echo "Timed out waiting for $EXPECTED_SHA to be live"
+          exit 1
 
       - name: Run deployed probe
         env:
