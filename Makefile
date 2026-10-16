@@ -1,4 +1,4 @@
-.PHONY: verify typecheck lint test format install db-migrate
+.PHONY: verify typecheck lint test format install db-migrate probe-deployed
 
 # Run serially. These were parallelised with `pnpm typecheck & pnpm lint & wait`,
 # and a bare `wait` returns 0 regardless of its children's exit statuses — so
@@ -30,3 +30,12 @@ format:
 
 db-migrate:
 	pnpm db:migrate
+
+# Probe a deployed API (K2.50). BASE_URL is required and must be HTTPS.
+# Exits non-zero on any failure or UNVERIFIED check — an unproven security
+# property holds the gate red, it is not waved through.
+probe-deployed:
+ifndef BASE_URL
+	$(error BASE_URL is required, e.g. make probe-deployed BASE_URL=https://api-production-9b18.up.railway.app)
+endif
+	node scripts/k3-deployed-probe.mjs
