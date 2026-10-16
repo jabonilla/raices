@@ -1,0 +1,38 @@
+name: Deployed API probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "BASE_URL to probe (must be HTTPS)"
+        required: false
+        default: "https://api-production-9b18.up.railway.app"
+        type: string
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  probe:
+    name: Probe deployed API
+    # Only run the post-deploy check when CI passed on main; manual
+    # dispatches always run.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run deployed probe
+        env:
+          BASE_URL: ${{ inputs.base_url || 'https://api-production-9b18.up.railway.app' }}
+        run: node scripts/k3-deployed-probe.mjs
+        # The probe exits non-zero on any failure or UNVERIFIED check.
+        # That is correct: an unproven security property holds the gate red.
