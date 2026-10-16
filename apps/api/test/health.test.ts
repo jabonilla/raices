@@ -16,7 +16,7 @@ it("GET /health returns { ok: true }", async () => {
   const response = await app.inject({ method: "GET", url: "/health" });
 
   expect(response.statusCode).toBe(200);
-  const body = response.json() as { ok: boolean; sha: string };
+  const body = response.json();
   expect(body.ok).toBe(true);
   expect(typeof body.sha).toBe("string");
   expect(Object.keys(body).sort()).toEqual(["ok", "sha"]);
