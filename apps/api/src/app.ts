@@ -16,6 +16,8 @@ import { FakeSignatureVerifier } from "./webhooks/signature.js";
 
 export interface HealthResponse {
   readonly ok: true;
+  /** Deployed git SHA, for the deployed-probe workflow to wait on. Set via GIT_SHA or RAILWAY_GIT_COMMIT_SHA at build time; "unknown" if unset. */
+  readonly sha?: string;
 }
 
 export interface ReadyResponse {
@@ -145,8 +147,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   // /health: process is up. No dependencies checked.
+  // Includes the deployed git SHA so the deployed-probe workflow can wait
+  // until the expected commit is live (K2.50 follow-up).
   app.get("/health", (): HealthResponse => {
-    return { ok: true };
+    const sha = process.env.GIT_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? "unknown";
+    return { ok: true, sha };
   });
 
   // /ready: can we reach Postgres? Returns 503 when the DB is unreachable.
