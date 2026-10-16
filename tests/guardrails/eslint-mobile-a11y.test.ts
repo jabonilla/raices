@@ -35,9 +35,16 @@ export function Good() {
 }
 `;
 
+// CI-3: the fixture must NOT contain hardcoded JSX text. The i18n
+// no-restricted-syntax rule (JSXText selector) fires on hardcoded text in
+// apps/mobile/app, which shares ruleId "no-restricted-syntax" with the
+// allowFontScaling ban — so a hardcoded fixture lets this test pass off the
+// wrong rule when the allowFontScaling selector is disabled. Using t()
+// keeps the fixture clean; the test then asserts the ban's own message.
 const NO_FONT_SCALING_FIXTURE = `import { Text } from "react-native";
+const t = (key: string) => key;
 export function Bad() {
-  return <Text allowFontScaling={false}>Fixed size</Text>;
+  return <Text allowFontScaling={false}>{t("label")}</Text>;
 }
 `;
 
@@ -75,7 +82,10 @@ async function withFixture(code: string, fn: (filePath: string) => Promise<void>
   }
 }
 
-function ruleErrors(messages: { ruleId?: string | null; severity?: number }[], ruleId: string) {
+function ruleErrors(
+  messages: { ruleId?: string | null; severity?: number; message?: string }[],
+  ruleId: string,
+) {
   return messages.filter((m) => m.ruleId === ruleId && m.severity === 2);
 }
 
@@ -103,10 +113,14 @@ describe("guardrail: mobile accessibility baseline", () => {
     await withFixture(NO_FONT_SCALING_FIXTURE, async (filePath) => {
       const messages = await lintFixtureFile(filePath);
       const errors = ruleErrors(messages, "no-restricted-syntax");
+      // CI-3: assert the allowFontScaling selector's own message, not just
+      // the ruleId. "no-restricted-syntax" also carries the i18n hardcoded-
+      // string ban in apps/mobile/app; matching only the ruleId let this
+      // test pass off that unrelated rule with the font selector disabled.
       expect(
-        errors.length,
+        errors.some((m) => (m.message ?? "").includes("Do not set allowFontScaling")),
         `Expected the allowFontScaling ban to fire. Got: ${JSON.stringify(messages)}`,
-      ).toBeGreaterThan(0);
+      ).toBe(true);
     });
   });
 });

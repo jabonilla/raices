@@ -10,6 +10,22 @@ import mobileA11y from "./eslint-plugins/mobile-a11y.js";
  * these in rather than silently replacing them: in flat config, the last
  * matching block wins per rule, not per selector.
  */
+/**
+ * Mobile accessibility baseline (K2.7): never disable OS font scaling on
+ * Text — many users are on older phones with large system fonts. Shared so
+ * every config block that defines its own `no-restricted-syntax` for mobile
+ * files spreads it in rather than silently replacing it: in flat config the
+ * last matching block wins per rule, not per selector, so without the
+ * spread the i18n block below would delete this ban wherever it applies.
+ * (CI-3)
+ */
+const ALLOW_FONT_SCALING_BAN = {
+  selector: "JSXAttribute[name.name='allowFontScaling']",
+  message:
+    "Do not set allowFontScaling. Text must scale with the OS font-size " +
+    "setting (K2.7 accessibility baseline).",
+};
+
 const FLOAT_BAN_SELECTORS = [
   {
     selector: "CallExpression[callee.name='Number']",
@@ -137,15 +153,7 @@ export default tseslint.config(
     plugins: { "mobile-a11y": mobileA11y },
     rules: {
       "mobile-a11y/require-accessibility-label": "error",
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "JSXAttribute[name.name='allowFontScaling']",
-          message:
-            "Do not set allowFontScaling. Text must scale with the OS font-size " +
-            "setting (K2.7 accessibility baseline).",
-        },
-      ],
+      "no-restricted-syntax": ["error", ALLOW_FONT_SCALING_BAN],
     },
   },
   {
@@ -177,6 +185,11 @@ export default tseslint.config(
           selector: "JSXText[value=/\\S/]",
           message: 'Hardcoded user-facing string. Use t("key") from react-i18next instead.',
         },
+        // CI-3: keep the allowFontScaling ban alive here. This block's
+        // no-restricted-syntax replaces the a11y block's for every file it
+        // matches; without this spread the ban would be dead in
+        // apps/mobile/app/** and apps/mobile/src/**.
+        ALLOW_FONT_SCALING_BAN,
       ],
     },
   },
