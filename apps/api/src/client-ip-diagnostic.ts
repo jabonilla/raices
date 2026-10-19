@@ -2,24 +2,21 @@ import { createHmac } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 
 /**
- * K3.21: Opt-in diagnostic for isolated non-production environments.
- *
- * Never expose the raw address, salt, or forwarded headers. The route is
- * absent unless explicitly enabled. Production NODE_ENV fails closed.
- * The staging deployment must be verified as non-production before enabling.
+ * Staging-only IP diagnostic. The route is entirely absent unless staging
+ * identity and a secret salt are both present. Never emit raw addresses.
  */
 export function registerClientIpDiagnostic(
   app: FastifyInstance,
   env: NodeJS.ProcessEnv = process.env,
 ): void {
-  if (env.K3_IP_DIAGNOSTIC_ENABLED !== "true") return;
-  if (env.NODE_ENV !== "test" && env.NODE_ENV !== "development") {
-    throw new Error("K3 IP diagnostic is forbidden outside test/development");
+  const enabled = env.RAICES_ENV === "staging" && Boolean(env.DIAGNOSTIC_IP_SALT);
+  if (env.RAICES_ENV === "production" && env.K3_IP_DIAGNOSTIC_ENABLED === "true") {
+    throw new Error("IP diagnostic must never be enabled in production");
   }
-  const salt = env.K3_IP_DIAGNOSTIC_SALT;
-  if (!salt || salt.length < 32) {
-    throw new Error("K3 IP diagnostic requires a secret salt of at least 32 characters");
-  }
+  if (!enabled) return;
+
+  const salt = env.DIAGNOSTIC_IP_SALT;
+  if (!salt) return;
   app.get("/__diagnostics/client-ip", { logLevel: "silent" }, (request, reply) => {
     reply.header("Cache-Control", "no-store");
     return {
