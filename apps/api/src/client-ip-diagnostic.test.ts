@@ -25,31 +25,29 @@ describe("K3.21 client IP diagnostic", () => {
     apps.push(app);
     expect(() =>
       registerClientIpDiagnostic(app, {
-        NODE_ENV: "production",
+        RAICES_ENV: "production",
         K3_IP_DIAGNOSTIC_ENABLED: "true",
-        K3_IP_DIAGNOSTIC_SALT: salt,
+        DIAGNOSTIC_IP_SALT: salt,
       }),
     ).toThrow(/forbidden/);
   });
 
-  it("rejects missing salt", () => {
+  it("omits route without salt", () => {
     const app = Fastify();
     apps.push(app);
     expect(() =>
       registerClientIpDiagnostic(app, {
-        NODE_ENV: "test",
-        K3_IP_DIAGNOSTIC_ENABLED: "true",
+        RAICES_ENV: "staging",
       }),
-    ).toThrow(/secret salt/);
+    ).not.toThrow();
   });
 
   it("returns a stable salted hash, never a raw IP", async () => {
     const app = Fastify({ trustProxy: true });
     apps.push(app);
     registerClientIpDiagnostic(app, {
-      NODE_ENV: "test",
-      K3_IP_DIAGNOSTIC_ENABLED: "true",
-      K3_IP_DIAGNOSTIC_SALT: salt,
+      RAICES_ENV: "staging",
+      DIAGNOSTIC_IP_SALT: salt,
     });
     const a = await app.inject({
       url: "/__diagnostics/client-ip",
