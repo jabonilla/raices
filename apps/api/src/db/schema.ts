@@ -5,6 +5,7 @@ import type { PlanDatabase } from "../plans/schema.js";
 import type { RelationshipDatabase } from "../relationships/schema.js";
 import type { RequestDatabase } from "../requests/schema.js";
 import type { TransactionTable } from "../transactions/schema.js";
+import type { ConversationDatabase } from "../conversation/schema.js";
 import type { ChannelInboundDatabase } from "../webhooks/inbound.js";
 
 /**
@@ -66,7 +67,8 @@ export interface Database
     RelationshipDatabase,
     PlanDatabase,
     RequestDatabase,
-    ChannelInboundDatabase {
+    ChannelInboundDatabase,
+    ConversationDatabase {
   transaction: TransactionTable;
   ledger_account: LedgerAccountTable;
   ledger_transaction: LedgerTransactionTable;
