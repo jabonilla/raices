@@ -97,9 +97,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     },
     // Cap parsed bodies so a huge payload cannot exhaust the process.
     bodyLimit: MAX_JSON_BODY_BYTES,
-    // Client IPs come from X-Forwarded-For: the app runs behind the
-    // platform edge, which sets it. See hardening.ts for the caveat.
-    trustProxy: true,
+    // Trust only the immediately connected platform proxy, not arbitrary
+    // client-supplied entries in the X-Forwarded-For chain (K3.21).
+    trustProxy: 1,
   });
 
   registerSecurityHeaders(app);
