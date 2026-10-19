@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { FakeChannelAdapter } from "@raices/channels";
 
 import { checkDatabaseReady } from "./health.js";
+import { registerClientIpDiagnostic } from "./client-ip-diagnostic.js";
 import { createPool } from "./db/index.js";
 import { NotFoundError, toApiError } from "./errors.js";
 import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
@@ -145,6 +146,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     const error = new NotFoundError();
     reply.status(error.statusCode).send(toApiError(error, request.id).body);
   });
+
+  // Explicitly opt-in, non-production-only diagnostic for K3.21.
+  registerClientIpDiagnostic(app);
 
   // /health: process is up. No dependencies checked.
   // Includes the deployed git SHA so the deployed-probe workflow can wait
