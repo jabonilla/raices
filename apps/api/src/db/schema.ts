@@ -5,6 +5,7 @@ import type { PlanDatabase } from "../plans/schema.js";
 import type { RelationshipDatabase } from "../relationships/schema.js";
 import type { RequestDatabase } from "../requests/schema.js";
 import type { TransactionTable } from "../transactions/schema.js";
+import type { ChannelInboundDatabase } from "../webhooks/inbound.js";
 
 /**
  * The typed database schema Kysely builds against, mirroring
@@ -60,7 +61,12 @@ export interface LedgerEntryTable {
 }
 
 export interface Database
-  extends AuditDatabase, RelationshipDatabase, PlanDatabase, RequestDatabase {
+  extends
+    AuditDatabase,
+    RelationshipDatabase,
+    PlanDatabase,
+    RequestDatabase,
+    ChannelInboundDatabase {
   transaction: TransactionTable;
   ledger_account: LedgerAccountTable;
   ledger_transaction: LedgerTransactionTable;

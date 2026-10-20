@@ -36,7 +36,9 @@ jobs:
       # The workflow_run trigger fires when CI finishes, not when Railway
       # finishes deploying, so it can probe the PREVIOUS deployment. Poll
       # /health until its sha matches the commit CI just verified, bounded
-      # at ~5 minutes. Manual dispatches skip this (no expected SHA).
+      # at ~5 minutes. Fails fast if /health reports sha "unknown" (deploy
+      # env misconfigured) instead of polling. Manual dispatches skip this
+      # (no expected SHA).
       - name: Wait for deployed commit
         if: github.event_name == 'workflow_run'
         env:
@@ -45,6 +47,10 @@ jobs:
         run: |
           for i in $(seq 1 30); do
             SHA=$(curl -sf "$BASE_URL/health" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).sha||'')}catch(e){}})")
+            if [ "$SHA" = "unknown" ]; then
+              echo "ERROR: /health reports sha \"unknown\" — the deploy env is not passing the commit SHA through (RAILWAY_GIT_COMMIT_SHA / GIT_SHA). Polling cannot fix this; fix the deploy config instead."
+              exit 1
+            fi
             if [ "$SHA" = "$EXPECTED_SHA" ]; then
               echo "Deployed commit matches $EXPECTED_SHA"
               exit 0
