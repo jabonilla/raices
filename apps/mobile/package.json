@@ -15,20 +15,20 @@
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.23",
     "expo-status-bar": "~3.0.0",
-    "i18next": "^26.4.2",
-    "react": "~19.3.0",
-    "react-i18next": "^17.0.15",
-    "react-native": "0.81.4",
-    "react-native-gesture-handler": "~3.3.0",
-    "react-native-reanimated": "~4.7.0",
+    "i18next": "^26.4.7",
+    "react": "~19.3.1",
+    "react-i18next": "^17.0.20",
+    "react-native": "0.88.0",
+    "react-native-gesture-handler": "~3.4.0",
+    "react-native-reanimated": "~4.7.1",
     "react-native-safe-area-context": "~5.10.0",
-    "react-native-screens": "~4.28.0",
-    "react-native-web": "^0.21.3"
+    "react-native-screens": "~4.30.0",
+    "react-native-web": "^0.21.4"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.1",
     "@types/react": "~19.3.0",
     "babel-preset-expo": "~57.0.13",
-    "react-dom": "~19.3.0"
+    "react-dom": "~19.3.1"
   }
 }
