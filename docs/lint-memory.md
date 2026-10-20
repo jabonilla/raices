@@ -53,8 +53,9 @@ runs: stable tree, lockfile-true install (`pnpm install
 | --- | --- | --- | --- |
 | Clean repo, cap 6,144 MB | 191 | 1,082 MB | pass |
 | Clean repo, default cap | 191 | 1,263 MB | pass |
-| Repo + scratch clones, cap 6,144 MB | 1,016 | 5,530 MB | exit 1 — 27 lint errors *inside the scratch clones*, not OOM |
-| Repo + scratch clones, default cap | 1,016 | 4,424 MB | pass |
+| Repo + scratch clones, cap 6,144 MB (TS 5.9) | 1,016 | 5,530 MB | exit 1 — 27 lint errors *inside the scratch clones*, not OOM |
+| Repo + scratch clones, default cap (TS 5.9) | 1,016 | 4,424 MB | pass — marginal |
+| Repo + scratch clones, default cap (TS 6.0) | 1,016 | ~2,370 MB | **abort (134), 3 of 3 runs** |
 | Clean repo, cap forced to 1,536 MB | 191 | — | abort (134), signature reproduced |
 
 Three caveats, stated plainly:
@@ -62,20 +63,26 @@ Three caveats, stated plainly:
 1. **RSS overstates heap.** It includes file-backed pages the process has
    merely read. Treat the figures as directional (the scratch runs peak
    ~4–5x the clean runs), not as heap accounting.
-2. **The controlled scratch runs did not reproduce the abort** — at the
-   default cap the 1,016-file run passed. So the scratch alone is not a
-   sufficient explanation for the aborts seen during PRs #137/#146, and
-   this document does not claim otherwise.
-3. **The historical aborts had a second, confounded cause.** While
+2. **The outcome depends on the TypeScript version's memory profile.**
+   Under TS 5.9 the scratch-inflated run at the default cap is marginal —
+   it completed once, at 4,424 MB, GC working hard. Under TS 6.0 the
+   same tree at the same cap aborted 3 of 3 times, each dying right at
+   the heap cap (hence the *lower* RSS peak: it aborts before reading
+   most files into cache). The clean tree passes comfortably under both
+   versions.
+3. **That combination is what the historical aborts ran under.** While
    diagnosing, a local typecheck failed with the TypeScript 6 `baseUrl`
    deprecation error: the VM's `node_modules` had drifted from the
-   lockfile (TS 6.0.3 installed, 5.9.3 pinned), most likely left over
-   from dependabot-bump experiments. The aborts happened under that
-   drifted install, with the scratch-inflated lint set, alongside other
-   workloads. The exact mix cannot be reconstructed after the fact; what
-   is certain is the failure signature, the fivefold lint set, and the
-   install drift — all three are local-environment facts, none is a repo
-   or CI fact.
+   lockfile (TS 6.0.3 installed, 5.9.3 pinned), left over from
+   dependabot-bump experiments. So during PRs #137/#146 the local lint
+   runs faced the TS 6.0 memory profile *and* the fivefold lint set on
+   an 8 GB box — the configuration that now aborts deterministically.
+   All of it is local-environment fact; none of it is a repo or CI fact.
+
+One forward-looking consequence: when the TypeScript 6 upgrade lands,
+local lint memory pressure rises measurably even though the clean tree
+still fits with room. The canary in the CI section below applies with
+TS 6 in mind.
 
 The scratch directory was the largest single multiplier found. An
 untracked `work/` directory inside the repo tree had accumulated nine
