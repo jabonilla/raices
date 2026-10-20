@@ -99,7 +99,7 @@
     },
     "states": {
       "emptyBody": "Todo queda guardado.",
-      "emptyTitle": "Cuando envíes tu primer pago, lo vas a ver aquí.",
+      "emptyTitle": "Cuando apruebes tu primer envío, lo vas a ver aquí.",
       "errorTitle": "No pudimos cargar tu historial. Probá de nuevo."
     },
     "title": "Historial"
@@ -200,10 +200,10 @@
     "retry": "Intentar de nuevo"
   },
   "statusBadge": {
-    "approved": "✓ Enviado",
+    "approved": "✓ Aprobado",
     "declined": "En pausa",
     "emergency": "Urgente",
-    "failed": "No llegó",
+    "failed": "No se completó",
     "flagged": "Para revisar",
     "pending": "Esperando",
     "statusLabel": "Estado: {{status}}"
@@ -214,5 +214,8 @@
     "history": "Historial",
     "home": "Inicio",
     "send": "Enviar"
+  },
+  "transactionCard": {
+    "failedNote": "El servicio de envío nos dijo que no pudo completarlo. Tu dinero está con el servicio de envío, no con Raíces. Pregúntale al asistente qué sigue."
   }
 }

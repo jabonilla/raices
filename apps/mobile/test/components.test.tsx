@@ -72,12 +72,12 @@ describe("Card", () => {
 
 describe("StatusBadge", () => {
   it.each([
-    ["approved", "✓ Enviado"],
+    ["approved", "✓ Aprobado"],
     ["pending", "Esperando"],
     ["flagged", "Para revisar"],
     ["emergency", "Urgente"],
     ["declined", "En pausa"],
-    ["failed", "No llegó"],
+    ["failed", "No se completó"],
   ] as const)("renders %s as %s", (status, copy) => {
     const { unmount } = render(<StatusBadge status={status} />);
     expect(screen.getByText(copy)).toBeTruthy();
@@ -89,8 +89,8 @@ describe("StatusBadge", () => {
     await i18n.changeLanguage("en-US");
     try {
       const { unmount } = render(<StatusBadge status="failed" />);
-      expect(screen.getByText("Didn't arrive")).toBeTruthy();
-      expect(screen.getByLabelText("Status: Didn't arrive")).toBeTruthy();
+      expect(screen.getByText("Wasn't completed")).toBeTruthy();
+      expect(screen.getByLabelText("Status: Wasn't completed")).toBeTruthy();
       unmount();
     } finally {
       await i18n.changeLanguage("es-US");
@@ -143,6 +143,18 @@ describe("TransactionCard", () => {
   it("never formats money: amount is rendered verbatim", () => {
     render(<TransactionCard {...props} amountText="Q 9,999.99" />);
     expect(screen.getByText("Q 9,999.99")).toBeTruthy();
+  });
+
+  it("explains a failed transfer: provider reported it, money is with the provider", () => {
+    const { unmount } = render(<TransactionCard {...props} status="failed" />);
+    expect(screen.getByText(/El servicio de envío nos dijo que no pudo completarlo/)).toBeTruthy();
+    expect(screen.getByText(/Tu dinero está con el servicio de envío, no con Raíces/)).toBeTruthy();
+    unmount();
+  });
+
+  it("shows no failure explanation for a non-failed transfer", () => {
+    render(<TransactionCard {...props} status="approved" />);
+    expect(screen.queryByText(/El servicio de envío nos dijo/)).toBeNull();
   });
 });
 

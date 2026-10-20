@@ -37,8 +37,11 @@ export interface StatusBadgeProps {
 
 /**
  * Pill status badge for the top-right of transaction cards (design system
- * 3.2). Failed renders neutral gray — the explanation lives next to it,
- * not in the badge.
+ * 3.2). Failed renders neutral gray — the explanation lives on the card,
+ * not in the badge (TransactionCard renders it under the purpose, K2.54).
+ * Labels state what Raíces knows, per ADR-002: "approved" is our act;
+ * arrival is the recipient's or the provider's to report, never ours to
+ * claim, so no badge says "sent" or "didn't arrive."
  */
 export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
   const { t } = useTranslation();
