@@ -1,14 +1,16 @@
 import { createHmac } from "node:crypto";
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.js";
 
 import { registerClientIpDiagnostic } from "./client-ip-diagnostic.js";
 
-const apps: Array<ReturnType<typeof Fastify>> = [];
+const apps: FastifyInstance[] = [];
 afterEach(async () => {
   vi.unstubAllEnvs();
-  await Promise.all(apps.splice(0).map((app) => app.close()));
+  await Promise.all(apps.splice(0).map(async (app) => {
+    await app.close();
+  }));
 });
 
 describe("K3.21 client IP diagnostic", () => {
@@ -25,12 +27,12 @@ describe("K3.21 client IP diagnostic", () => {
   it("fails closed when enabled in production", () => {
     const app = Fastify();
     apps.push(app);
-    expect(() =>
+    expect(() => {
       registerClientIpDiagnostic(app, {
         RAICES_ENV: "production",
         DIAGNOSTIC_IP_SALT: salt,
-      }),
-    ).toThrow(/forbidden/);
+      });
+    }).toThrow(/forbidden/);
   });
 
   it("omits route without salt", async () => {
@@ -39,8 +41,8 @@ describe("K3.21 client IP diagnostic", () => {
     expect(() =>
       registerClientIpDiagnostic(app, {
         RAICES_ENV: "staging",
-      }),
-    ).not.toThrow();
+      });
+    }).not.toThrow();
     const response = await app.inject("/__diagnostics/client-ip");
     expect(response.statusCode).toBe(404);
   });
