@@ -99,7 +99,7 @@
     },
     "states": {
       "emptyBody": "Everything stays saved.",
-      "emptyTitle": "When you send your first payment, you'll see it here.",
+      "emptyTitle": "When you approve your first transfer, you'll see it here.",
       "errorTitle": "We couldn't load your history. Try again."
     },
     "title": "History"
@@ -200,10 +200,10 @@
     "retry": "Try again"
   },
   "statusBadge": {
-    "approved": "✓ Sent",
+    "approved": "✓ Approved",
     "declined": "On hold",
     "emergency": "Urgent",
-    "failed": "Didn't arrive",
+    "failed": "Wasn't completed",
     "flagged": "Needs review",
     "pending": "Waiting",
     "statusLabel": "Status: {{status}}"
@@ -214,5 +214,8 @@
     "history": "History",
     "home": "Home",
     "send": "Send"
+  },
+  "transactionCard": {
+    "failedNote": "The delivery service told us it couldn't complete this transfer. Your money is with the delivery service, not with Raíces. Ask the assistant what to do next."
   }
 }

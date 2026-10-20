@@ -1,6 +1,8 @@
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
+import "../i18n";
 import { tokens } from "../theme/tokens";
 import { StatusBadge, type TransactionStatus } from "./StatusBadge";
 
@@ -41,6 +43,11 @@ export interface TransactionCardProps {
  * Tiers: recurring (Tierra Pale left border), planned-investment (gold left
  * border + stage), emergency (2px brick left border), unrecognized (flagged
  * left border, inset background).
+ *
+ * A failed transfer carries its explanation on the card (K2.54, ADR-002):
+ * Raíces does not move the money, so the note says the delivery service
+ * reported the failure, that the money is with the service, and what to do
+ * next — never a bare error that leaves the sender thinking we lost it.
  */
 export function TransactionCard({
   category,
@@ -52,6 +59,7 @@ export function TransactionCard({
   tier = "recurring",
   stageText,
 }: TransactionCardProps): JSX.Element {
+  const { t } = useTranslation();
   return (
     <View
       accessibilityRole="text"
@@ -77,6 +85,9 @@ export function TransactionCard({
       <Text style={styles.purpose}>{purpose}</Text>
       {tier === "planned-investment" && stageText !== undefined ? (
         <Text style={styles.stage}>{stageText}</Text>
+      ) : null}
+      {status === "failed" ? (
+        <Text style={styles.failedNote}>{t("transactionCard.failedNote")}</Text>
       ) : null}
       <View style={styles.bottomRow}>
         <Text style={styles.amount}>{amountText}</Text>
@@ -131,6 +142,14 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.body,
     color: tokens.color.pending,
     marginBottom: tokens.spacing.s2,
+  },
+  failedNote: {
+    fontSize: tokens.type.bodySmall.size,
+    fontWeight: tokens.type.bodySmall.weight,
+    lineHeight: tokens.type.bodySmall.lineHeight,
+    fontFamily: tokens.font.body,
+    color: tokens.color.textSecondary,
+    marginBottom: tokens.spacing.s3,
   },
   bottomRow: {
     flexDirection: "row",
