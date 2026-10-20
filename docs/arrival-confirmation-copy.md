@@ -1,9 +1,13 @@
 # Arrival Confirmation Copy — Draft
 
 **For:** José (wording decisions marked **[GAP]**)
-**Date:** 2026-10-20
+**Date:** 2026-10-20 (finalized the same day with José's answers, via Claude)
 **Ticket:** K2.53
 **Governs:** ADR-002 — Raíces facilitates, it does not transmit.
+
+José answered the four original gaps on 2026-10-20. His answers are applied
+below and marked **Decided**. Gaps the answers themselves create are
+collected at the end, flagged rather than filled.
 
 ## The rule every string below obeys
 
@@ -21,10 +25,12 @@ existing vos forms. Amounts and the recipient's name are always specific —
 the copy sheet's rule is to name the thing ("Aprobar $95.00"), not describe
 a state ("Confirmar").
 
-**[GAP — provider name]** There is no provider yet, so no string below can
-name one. Drafts use `{{provider}}` where the name belongs. Until a
-provider is chosen, the fallback wording is "el servicio de envío" — José
-to confirm that placeholder reads honestly and not evasively.
+**[Decided — provider name]** There is no provider yet, so no string below
+can name one. Drafts use `{{provider}}` where the name belongs, and the
+swap to a real name must stay a one-change operation. Until then the
+fallback wording is "el servicio de envío" — José's call: it reads evasive,
+so it is **temporary scaffolding, not a decision**. See new gap N2 at the
+end: the placeholder needs a named replacement trigger.
 
 ---
 
@@ -45,23 +51,32 @@ arrival evidence (ADR-002 confirmation source #1).
 >
 > Reply **YES** if you have it, or **NOT YET** if it hasn't arrived.
 
-**If she answers TODAVÍA NO:**
+**If she answers TODAVÍA NO** (final wording, José via Claude 2026-10-20):
 
-> Gracias por decirnos. Le avisamos a {{senderName}} que todavía no llega.
-> Te preguntamos de nuevo más tarde.
+> Gracias por avisarnos. Le decimos a {{senderName}} que todavía no llega.
 
-> Thanks for telling us. We'll let {{senderName}} know it hasn't arrived
-> yet. We'll ask you again later.
+> Thanks for letting us know. We'll tell {{senderName}} it hasn't arrived
+> yet.
 
-**[GAP — retry cadence]** How often do we re-ask, and when do we stop?
-Draft assumes "más tarde" with no number, because any number we print is a
-promise. José/product to set the cadence; the copy must not invent one.
+Note what this does **not** do: it does not reassure her the money is on
+its way. "El dinero ya va en camino" was proposed and rejected — if the
+provider has failed or flagged the transfer, that sentence tells her it
+is coming when it is not, and she stops checking and stops telling us,
+which costs us the evidence source ADR-002 depends on. The reassurance
+comes from someone acting ("le decimos a…"), not from a prediction about
+money we do not control. Test for every future string: could we still
+defend it if the transfer failed an hour later?
 
-**[GAP — sender identity]** The draft shows the sender's name. If the
-sender is known to her by a different name or nickname, the stored
-"how you refer to this person" only covers how the *sender* names the
-*recipient*, not the reverse. José: use the sender's account name, or is
-there a better source?
+**[Decided — retry cadence]** Ask her again on **day 5**, then on
+**day 7**. If still unconfirmed after day 7, **stop asking her** —
+repeated unanswered questions about money are a burden, not a service,
+and she may have reasons for not answering that have nothing to do with
+the transfer. After day 7 the question moves to the sender (§3). The
+re-asks resend the §1 message unchanged; no separate follow-up wording
+is drafted (see new gap N3).
+
+**[Decided — sender identity]** `{{senderName}}` is the sender's account
+name. Confirmed by José.
 
 ## 2. Recording a confirmation (in-app, sender's view)
 
@@ -111,9 +126,15 @@ separately in K2.54). The honest state:
 
 **Label:**
 
-> Aprobado · Esperando confirmación
+> Aprobado · Sin confirmar
 
-> Approved · Awaiting confirmation
+> Approved · Unconfirmed
+
+**[Decided — visible from day one]** The sender sees the unconfirmed
+state from **day 1**, not from day 5 when our first re-ask goes out. It
+is his relationship; he can ask her himself, and that is usually faster
+than our message. We do not make him wait on our cadence to learn
+something we already know.
 
 **Detail line:**
 
@@ -127,10 +148,19 @@ Note what this does not say: no arrival estimate, no "en camino" (the
 money's location is the provider's to report), no progress bar implying
 we are tracking something we are not.
 
-**[GAP — how long is "waiting"?]** If days pass with no confirmation and
-no provider update, the screen keeps saying the same thing. Does it ever
-change — a nudge to the recipient, an escalation, a "pregúntale al
-asistente" path? Product decision; no copy invented here.
+**[Decided — escalation]** The state changes on the §1 cadence: recipient
+re-asked day 5 and day 7. After day 7 with no confirmation, we stop
+asking her and ask the **sender** (in-app):
+
+> Ya pasaron 7 días y {{recipientName}} no nos ha confirmado. ¿Sabes si
+> ya recibió los {{amountGTQ}}?
+
+> It's been 7 days and {{recipientName}} hasn't confirmed with us. Do
+> you know if she received the {{amountGTQ}}?
+
+A sender "yes" is sender self-report — confirmation source #2 in
+ADR-002, weaker than the recipient's own word. How it gets recorded and
+labeled is new gap N1 below; the question itself is decided.
 
 ## 4. A transfer the provider says failed
 
@@ -179,6 +209,35 @@ without the provider's actual code list would be fiction.
 
 ---
 
+## New gaps these answers create (flagged, not filled)
+
+**N1 — Recording a sender self-report.** The day-7 path creates a new
+evidence state: the sender says she received it. ADR-002 ranks that #2,
+below the recipient's own confirmation, so it must not render with the
+same label or the same confidence as "Confirmado por {{recipientName}}."
+The recorded-state copy (label, detail line, history treatment) is not
+drafted here.
+
+**N2 — The `{{provider}}` placeholder needs a replacement trigger.** The
+placeholder is scaffolding with no owner yet: when a provider is
+selected, someone must swap every string in one change — including the
+live `transactionCard.failedNote` shipped in K2.54, which already says
+"el servicio de envío" in production copy. Launch must not mistake the
+placeholder for a settled decision.
+
+**N3 — Re-ask wording.** Day-5 and day-7 messages resend the §1 ask
+verbatim, by default. A dedicated follow-up tone (acknowledging we're
+asking again) may read better, but it is undrafted and unapproved.
+
+**N4 — What stops the cadence clock.** The day-5/day-7 asks assume
+nothing else has happened. A provider delivery or failure report, a
+recipient reply of either kind, or an early sender self-report should
+presumably end the sequence — that termination rule needs one line of
+product spec before Phase 5 builds the machinery, so we never ask about
+a transfer that is already resolved.
+
+---
+
 ## Proposed i18n keys (for Phase 5, not yet added to the locale files)
 
 ```
@@ -190,6 +249,7 @@ arrival.providerAndRecipient  (§2)
 arrival.notYetReported.*      (§2 gap)
 arrival.awaiting.label        (§3)
 arrival.awaiting.detail       (§3)
+arrival.senderCheckIn.*       (§3, day-7 sender question)
 arrival.providerFailed.title  (§4)
 arrival.providerFailed.body   (§4)
 ```
