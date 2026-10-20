@@ -48,7 +48,11 @@ const FLOAT_BAN_SELECTORS = [
 
 export default tseslint.config(
   {
-    ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**"],
+    // dist-web is Expo web build output (apps/mobile). It was previously
+    // excluded only via .gitignore; an explicit --ignore-pattern run linted
+    // it and produced thousands of phantom errors. Name it here so lint's
+    // view of the tree does not depend on .gitignore (docs/lint-memory.md).
+    ignores: ["**/node_modules/**", "**/dist/**", "**/dist-web/**", "**/coverage/**"],
   },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
