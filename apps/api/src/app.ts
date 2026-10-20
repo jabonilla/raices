@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { FakeChannelAdapter } from "@raices/channels";
 
 import { checkDatabaseReady } from "./health.js";
+import { registerClientIpDiagnostic } from "./client-ip-diagnostic.js";
 import { createPool } from "./db/index.js";
 import { NotFoundError, toApiError } from "./errors.js";
 import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
@@ -96,9 +97,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     },
     // Cap parsed bodies so a huge payload cannot exhaust the process.
     bodyLimit: MAX_JSON_BODY_BYTES,
-    // Client IPs come from X-Forwarded-For: the app runs behind the
-    // platform edge, which sets it. See hardening.ts for the caveat.
-    trustProxy: true,
+    // Trust only the immediately connected platform proxy, not arbitrary
+    // client-supplied entries in the X-Forwarded-For chain (K3.21).
+    trustProxy: (_address: string, hop: number) => hop < 1,
   });
 
   registerSecurityHeaders(app);
@@ -145,6 +146,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     const error = new NotFoundError();
     reply.status(error.statusCode).send(toApiError(error, request.id).body);
   });
+
+  // Explicitly opt-in, non-production-only diagnostic for K3.21.
+  registerClientIpDiagnostic(app);
 
   // /health: process is up. No dependencies checked.
   // Includes the deployed git SHA so the deployed-probe workflow can wait
