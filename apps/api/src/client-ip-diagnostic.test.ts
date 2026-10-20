@@ -32,13 +32,13 @@ describe("K3.21 client IP diagnostic", () => {
         RAICES_ENV: "production",
         DIAGNOSTIC_IP_SALT: salt,
       });
-    }).toThrow(/forbidden/);
+    }).toThrow(/must never be enabled in production/);
   });
 
   it("omits route without salt", async () => {
     const app = Fastify();
     apps.push(app);
-    expect(() =>
+    expect(() => {
       registerClientIpDiagnostic(app, {
         RAICES_ENV: "staging",
       });
