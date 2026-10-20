@@ -8,9 +8,11 @@ import { registerClientIpDiagnostic } from "./client-ip-diagnostic.js";
 const apps: FastifyInstance[] = [];
 afterEach(async () => {
   vi.unstubAllEnvs();
-  await Promise.all(apps.splice(0).map(async (app) => {
-    await app.close();
-  }));
+  await Promise.all(
+    apps.splice(0).map(async (app) => {
+      await app.close();
+    }),
+  );
 });
 
 describe("K3.21 client IP diagnostic", () => {
