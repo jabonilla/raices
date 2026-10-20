@@ -1,11 +1,13 @@
 import { createHmac } from "node:crypto";
 import Fastify from "fastify";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildApp } from "./app.js";
 
 import { registerClientIpDiagnostic } from "./client-ip-diagnostic.js";
 
 const apps: Array<ReturnType<typeof Fastify>> = [];
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(apps.splice(0).map((app) => app.close()));
 });
 
@@ -26,13 +28,12 @@ describe("K3.21 client IP diagnostic", () => {
     expect(() =>
       registerClientIpDiagnostic(app, {
         RAICES_ENV: "production",
-        K3_IP_DIAGNOSTIC_ENABLED: "true",
         DIAGNOSTIC_IP_SALT: salt,
       }),
     ).toThrow(/forbidden/);
   });
 
-  it("omits route without salt", () => {
+  it("omits route without salt", async () => {
     const app = Fastify();
     apps.push(app);
     expect(() =>
@@ -40,6 +41,23 @@ describe("K3.21 client IP diagnostic", () => {
         RAICES_ENV: "staging",
       }),
     ).not.toThrow();
+    const response = await app.inject("/__diagnostics/client-ip");
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("real buildApp rejects attacker-controlled leftmost forwarded IP", async () => {
+    vi.stubEnv("RAICES_ENV", "staging");
+    vi.stubEnv("DIAGNOSTIC_IP_SALT", salt);
+    const app = buildApp();
+    apps.push(app);
+    const response = await app.inject({
+      url: "/__diagnostics/client-ip",
+      headers: { "x-forwarded-for": "6.6.6.6, 203.0.113.5" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      clientIpHash: createHmac("sha256", salt).update("203.0.113.5").digest("hex"),
+    });
   });
 
   it("returns a stable salted hash, never a raw IP", async () => {
