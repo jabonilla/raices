@@ -149,6 +149,75 @@ export default tseslint.config(
     },
   },
   {
+    // P3.3: the inbound parser is pure, same rule and same reason as the
+    // tier classifier above. Its input is a string; its output is a reading
+    // or a question. Nothing here opens a connection, which is what lets
+    // every Spanish phrasing be table-tested without a container.
+    //
+    // This matters more than ordinary tidiness: the parser decides what a
+    // person asked for, and the approval gate downstream asks somebody to
+    // approve that reading. A parser that could reach a database could also
+    // start deciding based on history rather than on what was typed.
+    files: ["apps/api/src/messaging/parse/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "kysely",
+              message:
+                "The inbound parser is pure: it takes the message text and returns a reading " +
+                "or a question. Do the lookups in the caller (P3.3).",
+            },
+            { name: "pg", message: "The inbound parser takes text, never a connection (P3.3)." },
+            {
+              name: "pg-boss",
+              message: "The inbound parser takes text, never a job queue (P3.3).",
+            },
+            {
+              name: "postgres",
+              message: "The inbound parser takes text, never a connection (P3.3).",
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                "**/db",
+                "**/db/*",
+                "**/db/**",
+                "**/schema.js",
+                "**/schema",
+                "**/serializable.js",
+                "**/conversation/**",
+                "**/requests/**",
+              ],
+              message:
+                "The inbound parser does not import the database schema, its helpers, or the " +
+                "modules that write. Its types live beside it in apps/api/src/messaging/parse/ (P3.3).",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        ...FLOAT_BAN_SELECTORS,
+        {
+          selector: "ImportExpression",
+          message:
+            "A dynamic import would route around the parser's import ban. The parser is pure " +
+            "and loads nothing at runtime (P3.3).",
+        },
+        {
+          selector: "CallExpression[callee.name='require']",
+          message:
+            "require() would route around the parser's import ban. The parser is pure and " +
+            "loads nothing at runtime (P3.3).",
+        },
+      ],
+    },
+  },
+  {
     // Mobile accessibility baseline (K2.7). Many users are on older phones
     // with large system fonts, so these are lint errors, not suggestions:
     //  - every Pressable/Touchable* needs an accessibility label
