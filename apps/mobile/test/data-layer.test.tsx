@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fixtureProvider, uglyFixtureProvider } from "../src/data/fixtureProvider";
 import type { ScreenDataProvider } from "../src/data/provider";
@@ -121,12 +121,21 @@ describe("data-layer architecture (K2.24)", () => {
     // demo banner ("MODO DEMO · Sin dinero real") and the live /health
     // probe — not in pretending the screens are API-backed. When K3 ships
     // screen endpoints, these assertions get fetch-mock cases instead.
-    expect(realProvider.getHomeData()).toEqual(fixtureProvider.getHomeData());
-    expect(realProvider.getApprovalData()).toEqual(fixtureProvider.getApprovalData());
-    expect(realProvider.getGoalData()).toEqual(fixtureProvider.getGoalData());
-    expect(realProvider.getHistoryData()).toEqual(fixtureProvider.getHistoryData());
-    expect(realProvider.getAssistantData()).toEqual(fixtureProvider.getAssistantData());
-    expect(realProvider.getRelationshipsData()).toEqual(fixtureProvider.getRelationshipsData());
+    // The fixture generates timestamps from Date.now() on every call, so two
+    // back-to-back calls differ by ~1ms and the comparison flakes. Freeze the
+    // clock for this test so both providers resolve identical timestamps.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
+    try {
+      expect(realProvider.getHomeData()).toEqual(fixtureProvider.getHomeData());
+      expect(realProvider.getApprovalData()).toEqual(fixtureProvider.getApprovalData());
+      expect(realProvider.getGoalData()).toEqual(fixtureProvider.getGoalData());
+      expect(realProvider.getHistoryData()).toEqual(fixtureProvider.getHistoryData());
+      expect(realProvider.getAssistantData()).toEqual(fixtureProvider.getAssistantData());
+      expect(realProvider.getRelationshipsData()).toEqual(fixtureProvider.getRelationshipsData());
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("amounts pass through as opaque strings — the provider never formats money", () => {
