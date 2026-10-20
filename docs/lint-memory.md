@@ -5,12 +5,18 @@ K2's VM during PR #137. Is that a genuine memory ceiling on the machine, or
 does the ESLint config load the type graph in a way that will eventually hit
 CI too?
 
-Short answer: the config is legitimately heavy and will need watching as the
-codebase grows, but the aborts themselves were a local-environment trigger —
-an untracked scratch directory inside the repo tree had quietly multiplied
-the lint set fivefold. CI was never exposed to it. Details and measurements
-below, because the point of this document is that the next exit 134 gets
-diagnosed from evidence instead of waved off as "just the OOM thing."
+Short answer: a local-environment problem, in two layers. An untracked
+scratch directory inside the repo tree had quietly multiplied the lint set
+fivefold, and the machine's `node_modules` had drifted from the lockfile
+(TypeScript 6.0.3 installed where 5.9.3 is pinned). The config itself —
+fully type-aware linting — peaks at ~1.1–1.3 GB RSS on the clean tree,
+which is real weight but nowhere near any cap CI runs with. CI was never
+exposed to any of it. Details and measurements below, because the point of
+this document is that the next exit 134 gets diagnosed from evidence
+instead of waved off as "just the OOM thing." An earlier draft of this
+document carried peak figures measured under uncontrolled conditions;
+they were re-measured under controlled ones and corrected — see the
+caveats in the measurements section.
 
 ## The failure signature
 
@@ -38,40 +44,63 @@ surface linted, and there is no per-directory relief valve in a single run.
 ## Measurements (K2's VM: 8 GB RAM, no swap, 2 cores, Node 24)
 
 Node's default heap cap (`v8.getHeapStatistics().heap_size_limit`) on this
-box is **2,240 MB** — Node scales the default to total RAM.
+box is **2,240 MB** — Node scales the default to total RAM. Controlled
+runs: stable tree, lockfile-true install (`pnpm install
+--frozen-lockfile`), single ESLint process, RSS sampled from
+`/proc/<pid>/status` every second.
 
 | Run | Files linted | Peak RSS | Result |
 | --- | --- | --- | --- |
-| Clean repo (191 files), cap 6,144 MB | 191 | 2,876 MB | pass |
-| Clean repo, default cap | 191 | ~1,662 MB | pass |
-| Repo + scratch clones (1,016 files), default cap | 1,016 | ~2.9 GB | **intermittent abort (134)** |
+| Clean repo, cap 6,144 MB | 191 | 1,082 MB | pass |
+| Clean repo, default cap | 191 | 1,263 MB | pass |
+| Repo + scratch clones, cap 6,144 MB | 1,016 | 5,530 MB | exit 1 — 27 lint errors *inside the scratch clones*, not OOM |
+| Repo + scratch clones, default cap | 1,016 | 4,424 MB | pass |
 | Clean repo, cap forced to 1,536 MB | 191 | — | abort (134), signature reproduced |
 
-The "scratch clones" row is the trigger. An untracked `work/` directory
-inside the repo tree had accumulated nine full repo copies (792 MB) from
-local scratch work. ESLint lints the filesystem, not git, so `eslint .`
-walked all of them: 1,016 files instead of 191, and nine copies of the
-TypeScript program set instead of one. Whether a given run aborted depended
-on how much scratch had accumulated — which is why it looked random.
+Three caveats, stated plainly:
 
-The scratch has been moved out of the repo tree. Rule going forward: **no
-scratch clones inside the working tree.** They are invisible to `git status`
-review habits and they multiply every repo-wide tool, not just lint.
+1. **RSS overstates heap.** It includes file-backed pages the process has
+   merely read. Treat the figures as directional (the scratch runs peak
+   ~4–5x the clean runs), not as heap accounting.
+2. **The controlled scratch runs did not reproduce the abort** — at the
+   default cap the 1,016-file run passed. So the scratch alone is not a
+   sufficient explanation for the aborts seen during PRs #137/#146, and
+   this document does not claim otherwise.
+3. **The historical aborts had a second, confounded cause.** While
+   diagnosing, a local typecheck failed with the TypeScript 6 `baseUrl`
+   deprecation error: the VM's `node_modules` had drifted from the
+   lockfile (TS 6.0.3 installed, 5.9.3 pinned), most likely left over
+   from dependabot-bump experiments. The aborts happened under that
+   drifted install, with the scratch-inflated lint set, alongside other
+   workloads. The exact mix cannot be reconstructed after the fact; what
+   is certain is the failure signature, the fivefold lint set, and the
+   install drift — all three are local-environment facts, none is a repo
+   or CI fact.
+
+The scratch directory was the largest single multiplier found. An
+untracked `work/` directory inside the repo tree had accumulated nine
+full repo copies (792 MB) from local scratch work. ESLint lints the
+filesystem, not git, so `eslint .` walked all of them: 1,016 files
+instead of 191, and nine copies of the TypeScript program set instead of
+one. It has been moved out of the repo tree. Rules going forward: **no
+scratch clones inside the working tree**, and **if a local gate fails in
+a way CI does not, reinstall with `--frozen-lockfile` before diagnosing
+the code** — install drift impersonates code failure.
 
 ## What this means for CI
 
-CI checks out clean: 191 files, no scratch, no build output. Runners are
-16 GB with Node 22 (`.nvmrc`), whose default heap cap is roughly 4 GB —
-about 2.4x headroom over the ~1.7 GB clean-repo peak measured above. CI is
-not near this wall today.
+CI checks out clean: 191 files, no scratch, no build output, lockfile-true
+install. Runners are 16 GB with Node 22 (`.nvmrc`), whose default heap cap
+is roughly 4 GB — about 3x headroom over the ~1.1–1.3 GB clean-repo RSS
+peak measured above. CI is not near this wall.
 
-The structural trend is still real. Clean-repo lint peaks at ~1.7 GB RSS
-locally against a 2.24 GB default cap on an 8 GB machine — about 25%
-headroom — and the number grows with the type surface (the Expo SDK 58 bump
-visibly grew it). Local machines are the canary: when local lint starts
-aborting on a *clean* tree at the default cap, the config has outgrown a
-single process and the fix is splitting lint per workspace, not raising caps
-forever. Until then, treat a local 134 as a measurement prompt, not a shrug.
+The trend is worth one sentence, no more: type-aware lint memory grows
+with the codebase's type surface, so the margin shrinks as the repo grows.
+Local machines are the canary — when local lint starts aborting on a
+*clean, lockfile-true* tree at the default cap, the config has outgrown a
+single process and the fix is splitting lint per workspace, not raising
+caps forever. Until then, treat a local 134 as a measurement prompt, not
+a shrug.
 
 ## If you hit exit 134
 
@@ -80,6 +109,9 @@ forever. Until then, treat a local 134 as a measurement prompt, not a shrug.
    full log before rerunning; a green rerun destroys the evidence.
 2. Check for untracked bulk inside the tree (`du -sh` on suspicious
    directories; `eslint . --format json` file count vs. the ~191 baseline).
+   And check the install is lockfile-true (`pnpm install
+   --frozen-lockfile`) — drift there impersonates both code failure and
+   memory failure.
 3. One-off local workaround on an idle machine:
    `NODE_OPTIONS=--max-old-space-size=4096 pnpm lint`. This is deliberately
    **not** baked into the lint script: forcing a 4 GB cap would push
