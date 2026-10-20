@@ -99,7 +99,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     bodyLimit: MAX_JSON_BODY_BYTES,
     // Trust only the immediately connected platform proxy, not arbitrary
     // client-supplied entries in the X-Forwarded-For chain (K3.21).
-    trustProxy: 1,
+    trustProxy: (_address: string, hop: number) => hop < 1,
   });
 
   registerSecurityHeaders(app);
