@@ -88,9 +88,14 @@ forever. Until then, treat a local 134 as a measurement prompt, not a shrug.
 
 ## Related fix in the same PR
 
-`apps/mobile/dist-web/` (Expo web build output) was excluded from local
-lint only implicitly, via `.gitignore`. Directory traversal honored that,
-but an explicit `--ignore-pattern` run linted 13 bundle files and produced
-5,581 phantom errors. It is now in the ESLint config's `ignores` directly,
-so lint's view of the tree no longer depends on `.gitignore` staying in
-sync.
+`apps/mobile/dist-web/` (Expo web build output) is not named in the ESLint
+config; only `.gitignore` marks it as output. Its exclusion from local
+lint turned out to be inconsistent: some local runs skipped it, while
+others — a plain `eslint .` on the lockfile-true install, and any
+`--ignore-pattern` run — linted its 13 bundle files and produced 5,581
+phantom errors. (The inconsistency appears to track local install state;
+an earlier node_modules drift on this VM had silently diverged from the
+lockfile. It is not worth reverse-engineering further: build output does
+not belong in lint's input set either way.) It is now in the config's
+`ignores` directly, so lint's view of the tree is deterministic and no
+longer depends on `.gitignore` or install state.
