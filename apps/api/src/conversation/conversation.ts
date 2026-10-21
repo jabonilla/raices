@@ -255,3 +255,68 @@ export async function resolveAffirmative<DB extends ConversationDatabase>(
     options,
   );
 }
+
+export type DeclineOutcome =
+  | { readonly discarded: true; readonly from: PendingState }
+  | { readonly discarded: false; readonly reason: "no_pending_context" };
+
+/**
+ * Consume a refusal — a "no" — against whatever is pending.
+ *
+ * The counterpart of `resolveAffirmative`, and P3.3 is its first caller. It
+ * exists so that declining is a recorded act rather than the absence of
+ * one: the context is cleared through its own audited transition, with its
+ * own action name, so the trail distinguishes "she said no" from "nobody
+ * ever answered". Nothing downstream is created, which is the point — a
+ * declined confirmation must leave no request behind it.
+ *
+ * An already-expired context is still discarded here rather than reported
+ * as expired, because the person's answer and the deadline agree: either
+ * way nothing happens.
+ */
+export async function declinePendingContext<DB extends ConversationDatabase>(
+  db: Kysely<DB>,
+  input: ResolveAffirmativeInput,
+  options: WithSerializableTxOptions = {},
+): Promise<DeclineOutcome> {
+  return withSerializableTx(
+    db,
+    async (rawTrx): Promise<DeclineOutcome> => {
+      const trx = rawTrx as unknown as Transaction<ConversationDatabase>;
+      const row = await readConversation(trx, input.relationshipId, input.channel);
+
+      if (row === undefined || row.state === "idle") {
+        return { discarded: false, reason: "no_pending_context" };
+      }
+
+      const from = row.state;
+      await transitionWithin(
+        trx,
+        conversationMachine,
+        {
+          entityId: row.id,
+          from,
+          to: "idle",
+          action: "conversation.decline_pending",
+          actor: input.actor,
+          channel: input.channel,
+        },
+        async (inner) => {
+          await inner
+            .updateTable("conversation")
+            .set({
+              state: "idle",
+              pending_payload: null,
+              expires_at: null,
+              last_message_at: new Date(),
+            })
+            .where("id", "=", row.id)
+            .execute();
+        },
+      );
+
+      return { discarded: true, from };
+    },
+    options,
+  );
+}
