@@ -22,6 +22,13 @@ import type { Ambiguity } from "./parse/index.js";
  * Copy status: this is working Spanish, written to be clear rather than
  * final. Issue #46 owns approved product copy and should review it.
  *
+ * Register: vos, not tú — "respondé", "necesitás", "escribime". That is
+ * what apps/mobile/src/i18n/es.json already uses ("tenés") and what
+ * docs/arrival-confirmation-copy.md states as the rule. The same doc's own
+ * WhatsApp strings use tú ("Responde", "para ti", "si ya lo tienes"), which
+ * contradicts both; flagged on the PR rather than changed here, since those
+ * strings were agreed with José.
+ *
  * PII: a counterparty's display name may appear in these strings because
  * they go to the person who already knows it. It is on the K2.5 redaction
  * deny-list, so these strings must never be logged.
@@ -50,7 +57,7 @@ export function confirmationReply(copy: ConfirmationCopy): string {
   const forWhat = copy.purpose === null ? "" : ` para ${copy.purpose}`;
   return (
     `Para confirmar: ¿le pedimos ${amount(copy.money)}${forWhat} a ${to}? ` +
-    `Responde SI para enviar la solicitud, o NO para cancelar.`
+    `Respondé SI para enviar la solicitud, o NO para cancelar.`
   );
 }
 
@@ -68,32 +75,32 @@ export function clarificationReply(reason: Ambiguity, candidates: readonly Money
   switch (reason) {
     case "multiple_amounts": {
       const listed = candidates.map(amount).join(" o ");
-      return `Vi más de un monto (${listed}). ¿Cuál necesitas? ${example}`;
+      return `Vi más de un monto (${listed}). ¿Cuál necesitás? ${example}`;
     }
     case "range":
-      return `Me diste un rango. ¿Qué monto exacto necesitas? ${example}`;
+      return `Me diste un rango. ¿Qué monto exacto necesitás? ${example}`;
     case "approximate":
-      return `¿Me confirmas el monto exacto? ${example}`;
+      return `¿Me confirmás el monto exacto? ${example}`;
     case "ambiguous_separator":
       // The one where guessing is worst: 1.500 is Q1,500 or Q1.50 depending
       // on which convention the person has in mind.
       return (
-        `No estoy seguro de ese número. Escríbelo sin puntos de miles, por ejemplo ` +
+        `No estoy seguro de ese número. Escribilo sin puntos de miles, por ejemplo ` +
         `*Q1500* o *Q1500.50*. ${example}`
       );
     case "ambiguous_currency":
-      return `Por ahora solo manejamos quetzales. ¿Cuánto necesitas en quetzales? ${example}`;
+      return `Por ahora solo manejamos quetzales. ¿Cuánto necesitás en quetzales? ${example}`;
     case "implausible_amount":
-      return `Ese monto no me cuadra. ¿Me lo confirmas? ${example}`;
+      return `Ese monto no me cuadra. ¿Me lo confirmás? ${example}`;
     case "no_amount":
-      return `Claro. ¿Cuánto necesitas? ${example}`;
+      return `Claro. ¿Cuánto necesitás? ${example}`;
   }
 }
 
 /** Nothing we could act on — still an answer, never silence. */
 export function unparseableReply(): string {
   return (
-    `No logré entender el mensaje. Si necesitas pedir dinero, escríbeme el monto y para qué. ` +
+    `No logré entender el mensaje. Si necesitás pedir dinero, escribime el monto y para qué. ` +
     `Por ejemplo: *necesito Q200 para la renta*.`
   );
 }
@@ -102,20 +109,20 @@ export function unparseableReply(): string {
 export function expiredReply(): string {
   return (
     `Pasó un rato desde que te pregunté, así que cancelé esa solicitud para no equivocarme. ` +
-    `Si todavía la necesitas, escríbeme el monto otra vez.`
+    `Si todavía la necesitás, escribime el monto otra vez.`
   );
 }
 
 /** They said no. */
 export function declinedReply(): string {
-  return `Listo, no envié nada. Si necesitas otra cosa, aquí estoy.`;
+  return `Listo, no envié nada. Si necesitás otra cosa, aquí estoy.`;
 }
 
 /** A yes with nothing pending behind it. */
 export function nothingPendingReply(): string {
   return (
-    `No tengo ninguna solicitud pendiente de confirmar. Si necesitas pedir algo, ` +
-    `escríbeme el monto y para qué.`
+    `No tengo ninguna solicitud pendiente de confirmar. Si necesitás pedir algo, ` +
+    `escribime el monto y para qué.`
   );
 }
 
