@@ -37,3 +37,50 @@ describe("readEnv (K2.29)", () => {
     );
   });
 });
+
+describe("readEnv secrets (#136)", () => {
+  const base = { DATABASE_URL: "postgres://localhost/raices" };
+  const pepper = "x".repeat(32);
+  const all = {
+    IDENTITY_PEPPER: pepper,
+    RECEIPT_PEPPER: pepper,
+    INVITE_LIMIT_PEPPER: pepper,
+  };
+
+  it("reports no secrets when none are set", () => {
+    expect(readEnv(base).secrets).toBeUndefined();
+  });
+
+  it("reads all three when all three are set", () => {
+    expect(readEnv({ ...base, ...all }).secrets).toEqual({
+      identityPepper: pepper,
+      receiptPepper: pepper,
+      invitePepper: pepper,
+    });
+  });
+
+  it("refuses a half-configured set rather than starting without authentication", () => {
+    // Two of three is the dangerous shape: the process starts, the routes
+    // are absent, and nothing says why until someone cannot log in.
+    for (const omitted of Object.keys(all)) {
+      const partial = Object.fromEntries(Object.entries(all).filter(([name]) => name !== omitted));
+      expect(() => readEnv({ ...base, ...partial })).toThrow(new RegExp(omitted, "u"));
+    }
+  });
+
+  it("refuses a pepper too short to be a secret, without logging it", () => {
+    const short = "too-short";
+    expect(() => readEnv({ ...base, ...all, RECEIPT_PEPPER: short })).toThrow(
+      /RECEIPT_PEPPER must be at least 32 bytes; got 9\./u,
+    );
+    try {
+      readEnv({ ...base, ...all, RECEIPT_PEPPER: short });
+    } catch (error) {
+      expect((error as Error).message).not.toContain(short);
+    }
+  });
+
+  it("treats an empty string as unset", () => {
+    expect(readEnv({ ...base, IDENTITY_PEPPER: "" }).secrets).toBeUndefined();
+  });
+});

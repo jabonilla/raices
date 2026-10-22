@@ -71,6 +71,7 @@ it("known and unknown phones have identical wrong-code responses and no coarse t
       const start = performance.now();
       const requested = await app.inject({
         method: "POST",
+        headers: { "idempotency-key": crypto.randomUUID() },
         url: "/auth/otp/request",
         payload: { phone: phones[kind] },
       });
@@ -84,6 +85,7 @@ it("known and unknown phones have identical wrong-code responses and no coarse t
       const verifyStart = performance.now();
       const denied = await app.inject({
         method: "POST",
+        headers: { "idempotency-key": crypto.randomUUID() },
         url: "/auth/otp/verify",
         payload: { challengeId: body.challengeId, code: code === "000000" ? "111111" : "000000" },
       });

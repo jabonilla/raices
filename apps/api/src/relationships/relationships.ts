@@ -139,7 +139,7 @@ export async function invite(
   }
 }
 
-interface StatusChangeInput {
+export interface StatusChangeInput {
   readonly relationshipId: string;
   readonly actor: Actor;
   readonly channel?: Channel;
