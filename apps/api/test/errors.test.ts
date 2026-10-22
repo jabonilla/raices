@@ -17,10 +17,13 @@ const FAKE_CONNECTION_STRING = `postgres://k2user:${SECRET}@db.internal:5432/rai
 const app = buildApp();
 
 // Test-only routes that fail in controlled ways. Registered before ready().
-app.get("/boom-unknown", () => {
+// Each declares a policy because buildApp installs the authorization guard,
+// which refuses any route that does not: deny by default applies to routes a
+// test bolts on just as much as to real ones.
+app.get("/boom-unknown", { config: { authorizationPolicy: { kind: "public" as const } } }, () => {
   throw new Error(`failed to connect: ${FAKE_CONNECTION_STRING}`);
 });
-app.get("/boom-db", () => {
+app.get("/boom-db", { config: { authorizationPolicy: { kind: "public" as const } } }, () => {
   // Shaped like a pg driver error, with the secret in the message.
   const pgError = new Error(
     `password authentication failed: ${FAKE_CONNECTION_STRING}`,
@@ -30,13 +33,19 @@ app.get("/boom-db", () => {
   pgError.code = "28P01";
   throw pgError;
 });
-app.get("/boom-bad-request", () => {
-  throw new BadRequestError("width must be positive");
-});
-app.get("/boom-not-found", () => {
+app.get(
+  "/boom-bad-request",
+  { config: { authorizationPolicy: { kind: "public" as const } } },
+  () => {
+    throw new BadRequestError("width must be positive");
+  },
+);
+app.get("/boom-not-found", { config: { authorizationPolicy: { kind: "public" as const } } }, () => {
   throw new NotFoundError("transfer not found");
 });
-app.post("/echo", (request) => ({ got: request.body }));
+app.post("/echo", { config: { authorizationPolicy: { kind: "public" as const } } }, (request) => ({
+  got: request.body,
+}));
 
 beforeAll(async () => {
   await app.ready();
