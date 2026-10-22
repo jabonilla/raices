@@ -135,6 +135,16 @@ export function installAuthorization(
     for (const method of Array.isArray(route.method) ? route.method : [route.method])
       inventory.push({ method, url: route.url, policy: policy.kind });
   });
+  // Rate limiting for everything below is the global onRequest hook in
+  // hardening.ts, which runs a whole lifecycle phase before preValidation.
+  // CodeQL cannot see it — hardening.ts says as much in its own comment —
+  // and it cannot resolve the indirect call the webhook makes either, so
+  // the explicit-call remedy does not clear it here. The ordering is proved
+  // instead: "spends the budget on an unauthenticated flood without ever
+  // reaching the token lookup" in wired-routes.test.ts asserts
+  // [401, 401, 429, 429], i.e. the budget is spent before authenticate()
+  // touches the database. Remove that test and this suppression is a lie.
+  // codeql[js/missing-rate-limiting]
   app.addHook("preValidation", async (request, reply) => {
     // A request that matched no route has no policy to read and no handler
     // to protect. Letting it fall through to the not-found handler keeps an

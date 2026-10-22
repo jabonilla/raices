@@ -354,6 +354,42 @@ describe("writes are idempotent", () => {
   });
 });
 
+describe("the rate limiter runs before authorization", () => {
+  it("spends the budget on an unauthenticated flood without ever reaching the token lookup", async () => {
+    // The ordering is the property: the global onRequest limiter runs
+    // before the policy's preValidation, so an attacker spraying bearer
+    // tokens is cut off by the budget rather than by a database round trip
+    // per guess. A 401 here instead of a 429 would mean every guess cost us
+    // an identity_session read.
+    const limited = buildApp({
+      rateLimitMax: 2,
+      rateLimitWindowMs: 60_000,
+      api: {
+        db,
+        identity,
+        receipts: new PostgresReceiptStore(db, "rate-limit-receipt-pepper-32-bytes"),
+        inviteLimiter: new InviteLimiter(db, "rate-limit-invite-pepper-32-bytes"),
+      },
+    });
+    await limited.ready();
+    try {
+      const statuses: number[] = [];
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const response = await limited.inject({
+          method: "GET",
+          url: "/relationships",
+          headers: { authorization: `Bearer ${"a".repeat(43)}` },
+          remoteAddress: "198.51.100.7",
+        });
+        statuses.push(response.statusCode);
+      }
+      expect(statuses).toEqual([401, 401, 429, 429]);
+    } finally {
+      await limited.close();
+    }
+  });
+});
+
 describe("the contract describes what is served", () => {
   it("serves the wired routes in /openapi.json", async () => {
     const document = await app.inject({ method: "GET", url: "/openapi.json" });
