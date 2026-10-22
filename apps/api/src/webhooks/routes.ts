@@ -73,11 +73,6 @@ export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDe
       // and providers do not send an Idempotency-Key header.
       config: { authorizationPolicy: { kind: "signature-verified" } },
     },
-    // codeql[js/missing-rate-limiting] — the first statement of this handler
-    // is the rate-limit check. CodeQL cannot resolve `deps.rateLimitCheck`
-    // through the injected dependency, so the call it is asking for is the
-    // one directly beneath this comment. Proved by "enforces rate limiting on the webhook route"
-    // in test/webhooks.test.ts, which asserts [.., .., 429, 429].
     async (request, reply): Promise<WebhookAcceptedBody> => {
       // 0. Rate limit, explicit at the route. The global onRequest hook
       // exempts this path to avoid double-counting; the same check runs
