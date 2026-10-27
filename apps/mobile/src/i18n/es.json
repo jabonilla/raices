@@ -69,15 +69,15 @@
     "title": "Asistente"
   },
   "auth": {
-    "title": "Iniciar sesión",
-    "phoneLabel": "Tu número de teléfono",
-    "sendCode": "Mandar código",
     "codeLabel": "Código de 6 dígitos",
     "codePlaceholder": "123456",
-    "verify": "Entrar",
     "codeSent": "Te mandamos un código por WhatsApp. Escríbelo aquí.",
-    "wrongCode": "Ese código no coincide. Revisa y prueba otra vez.",
-    "useAnotherNumber": "Usar otro número"
+    "phoneLabel": "Tu número de teléfono",
+    "sendCode": "Mandar código",
+    "title": "Iniciar sesión",
+    "useAnotherNumber": "Usar otro número",
+    "verify": "Entrar",
+    "wrongCode": "Ese código no coincide. Revisa y prueba otra vez."
   },
   "common": {
     "back": "Atrás",

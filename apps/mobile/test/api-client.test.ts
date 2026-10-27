@@ -104,8 +104,35 @@ describe("apiClient (S5)", () => {
     const request = await client.getRequest(TOKEN, REQUEST_WIRE.id);
     expect(request.amountMinor).toBe("20000");
     expect(request.currency).toBe("GTQ");
+    expect(request.amountDisplay).toBeNull();
     expect(request.description).toBe("Medicinas");
     expect(request.status).toBe("pending");
+  });
+
+  it("passes the optional invitee phone and server amount display through when present", async () => {
+    const relFetch = vi.fn(() =>
+      Promise.resolve(
+        jsonResponse(200, [{ ...RELATIONSHIP_WIRE, inviteePhoneE164: "+50255550100" }]),
+      ),
+    );
+    const relClient = createApiClient({ baseUrl: "https://api.example", fetchImpl: relFetch });
+    const [rel] = await relClient.listRelationships(TOKEN);
+    expect(rel?.inviteePhoneE164).toBe("+50255550100");
+
+    const reqFetch = vi.fn(() =>
+      Promise.resolve(jsonResponse(200, { ...REQUEST_WIRE, amountDisplay: "Q200.00" })),
+    );
+    const reqClient = createApiClient({ baseUrl: "https://api.example", fetchImpl: reqFetch });
+    const request = await reqClient.getRequest(TOKEN, REQUEST_WIRE.id);
+    expect(request.amountDisplay).toBe("Q200.00");
+  });
+
+  it("rejects a non-string optional field", async () => {
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(jsonResponse(200, [{ ...RELATIONSHIP_WIRE, inviteePhoneE164: 502 }])),
+    );
+    const client = createApiClient({ baseUrl: "https://api.example", fetchImpl });
+    await expect(client.listRelationships(TOKEN)).rejects.toMatchObject({ kind: "bad-payload" });
   });
 
   it("maps a 401 to unauthorized and a network failure to offline", async () => {

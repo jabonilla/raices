@@ -54,7 +54,14 @@ export interface Session {
   readonly expiresAt: string;
 }
 
-/** Wire shape: RelationshipResponseSchema (#153). No phone field. */
+/**
+ * Wire shape: RelationshipResponseSchema (#153 + S5 API PR).
+ *
+ * inviteePhoneE164 is optional and inviter-only: present only when the
+ * viewer is the user who supplied the phone at invite time, absent for the
+ * invitee's view and for anyone else. The app renders the phone line only
+ * when the field is present — it never invents a phone.
+ */
 export interface RelationshipWire {
   readonly id: string;
   readonly status: "invited" | "active" | "paused" | "terminated";
@@ -63,15 +70,24 @@ export interface RelationshipWire {
   readonly userBId: string;
   readonly invitedAt: string;
   readonly activatedAt: string | null;
+  readonly inviteePhoneE164: string | null;
 }
 
-/** Wire shape: RequestResponseSchema (#153). Amount is minor units + code. */
+/**
+ * Wire shape: RequestResponseSchema (#153 + S5 API PR).
+ *
+ * amountDisplay is the server-formatted display string (packages/money's
+ * formatter, next to amountMinor and currency). It is null until the API
+ * PR lands: the app shows a loading or error state in that case, never
+ * minor units — no money math in the app, ever.
+ */
 export interface RequestWire {
   readonly id: string;
   readonly relationshipId: string;
   readonly requestedBy: string;
   readonly amountMinor: string;
   readonly currency: string;
+  readonly amountDisplay: string | null;
   readonly categoryId: string | null;
   readonly description: string;
   readonly tier: string;
@@ -148,7 +164,12 @@ function parseRelationship(value: unknown): RelationshipWire {
     !isUuid(value.userAId) ||
     !isUuid(value.userBId) ||
     !isIsoDateTime(value.invitedAt) ||
-    !(value.activatedAt === null || isIsoDateTime(value.activatedAt))
+    !(value.activatedAt === null || isIsoDateTime(value.activatedAt)) ||
+    !(
+      value.inviteePhoneE164 === undefined ||
+      value.inviteePhoneE164 === null ||
+      typeof value.inviteePhoneE164 === "string"
+    )
   ) {
     throw new ApiClientError("bad-payload");
   }
@@ -160,6 +181,7 @@ function parseRelationship(value: unknown): RelationshipWire {
     userBId: value.userBId,
     invitedAt: value.invitedAt,
     activatedAt: value.activatedAt,
+    inviteePhoneE164: value.inviteePhoneE164 ?? null,
   };
 }
 
@@ -174,6 +196,11 @@ function parseRequest(value: unknown): RequestWire {
       typeof value.amount.amountMinor === "string" ? value.amount.amountMinor : "",
     ) ||
     !isNonEmptyString(value.amount.currency) ||
+    !(
+      value.amountDisplay === undefined ||
+      value.amountDisplay === null ||
+      typeof value.amountDisplay === "string"
+    ) ||
     !(value.categoryId === null || isUuid(value.categoryId)) ||
     !isNonEmptyString(value.description) ||
     !isNonEmptyString(value.tier) ||
@@ -193,6 +220,7 @@ function parseRequest(value: unknown): RequestWire {
     requestedBy: value.requestedBy,
     amountMinor: amount.amountMinor as string,
     currency: amount.currency as string,
+    amountDisplay: value.amountDisplay ?? null,
     categoryId: value.categoryId,
     description: value.description,
     tier: value.tier,

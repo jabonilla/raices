@@ -95,3 +95,25 @@ describe("AssistantScreen", () => {
     expect(screen.getByPlaceholderText("Escribe tu pregunta…")).toBeTruthy();
   });
 });
+
+describe("ApprovalScreen without plan data (S5)", () => {
+  it("renders amount and purpose but no plan box or category row", () => {
+    const provider = {
+      ...fixtureProvider,
+      getApprovalData: () => ({
+        recipientName: "María",
+        purpose: "Para el mercado",
+        amountText: "Q200.00",
+      }),
+    };
+    render(
+      <ScreenData provider={provider}>
+        <ApprovalScreen />
+      </ScreenData>,
+    );
+    expect(screen.getByText("María")).toBeTruthy();
+    expect(screen.getByText("Q200.00")).toBeTruthy();
+    expect(screen.queryByText("✓ Esto está dentro de tu plan")).toBeNull();
+    expect(screen.queryByText("Comida")).toBeNull();
+  });
+});
