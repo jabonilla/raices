@@ -21,7 +21,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@testcontainers/postgresql": "^12.1.0",
-    "@types/node": "^22.19.1",
+    "@types/node": "^25.9.9",
     "@types/pg": "^8.15.6",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
