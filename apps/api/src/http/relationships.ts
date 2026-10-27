@@ -41,6 +41,15 @@ export const RelationshipResponseSchema = z.object({
   userBId: z.uuid(),
   invitedAt: z.iso.datetime(),
   activatedAt: z.iso.datetime().nullable(),
+  /**
+   * S5 contract decision (Claude, 2026-10-27): the invitee's phone, but
+   * only for the inviter's view. The inviter is always user_a (invite()
+   * sets role_of_a "sender"), and the invitee's phone is their app_user
+   * row — findOrCreateUserByPhone looks the invitee up by the supplied
+   * phone, so it is that phone by construction. Absent for the invitee's
+   * view and for anyone else; absent, never null, when it does not apply.
+   */
+  inviteePhoneE164: z.string().optional(),
 });
 export const InviteResponseSchema = z.object({ id: z.uuid() });
 /**
@@ -87,7 +96,12 @@ export function registerRelationshipRoutes(
     if (row === undefined) throw new NotFoundError();
     return row;
   }
-  function view(row: Awaited<ReturnType<typeof member>>) {
+  function view(
+    row: Awaited<ReturnType<typeof member>>,
+    viewerId: string,
+    phones: ReadonlyMap<string, string>,
+  ) {
+    const inviteePhone = viewerId === row.user_a_id ? phones.get(row.user_b_id) : undefined;
     return RelationshipResponseSchema.parse({
       id: row.id,
       status: row.status,
@@ -96,7 +110,25 @@ export function registerRelationshipRoutes(
       userBId: row.user_b_id,
       invitedAt: row.invited_at.toISOString(),
       activatedAt: row.activated_at?.toISOString() ?? null,
+      ...(inviteePhone === undefined ? {} : { inviteePhoneE164: inviteePhone }),
     });
+  }
+  /**
+   * One query for every invitee phone a handler needs: the invitee is
+   * always user_b, so the ids are known before the lookup. A missing row
+   * yields no field, never a fabricated phone.
+   */
+  async function inviteePhones(
+    rows: readonly { user_b_id: string }[],
+  ): Promise<Map<string, string>> {
+    const ids = [...new Set(rows.map((row) => row.user_b_id))];
+    if (ids.length === 0) return new Map();
+    const users = await db
+      .selectFrom("app_user")
+      .select(["id", "phone"])
+      .where("id", "in", ids)
+      .execute();
+    return new Map(users.map((user) => [user.id, user.phone]));
   }
   async function write<T>(
     request: FastifyRequest,
@@ -142,7 +174,8 @@ export function registerRelationshipRoutes(
         .orderBy("seq", "desc")
         .execute();
       reply.header("cache-control", "no-store");
-      return rows.map(view);
+      const phones = await inviteePhones(rows);
+      return rows.map((row) => view(row, userId, phones));
     },
   });
   router.route({
@@ -152,7 +185,9 @@ export function registerRelationshipRoutes(
     handler: async (request, reply) => {
       z.object({}).strict().parse(request.query);
       reply.header("cache-control", "no-store");
-      return view(authorizedRelationship(request));
+      const row = authorizedRelationship(request);
+      const phones = await inviteePhones([row]);
+      return view(row, principal(request).id, phones);
     },
   });
   router.route({
@@ -207,7 +242,8 @@ export function registerRelationshipRoutes(
             actor: { kind: "user" as const, id: userId },
             channel: "app" as const,
           });
-          return view(await member(userId, id));
+          const row = await member(userId, id);
+          return view(row, userId, await inviteePhones([row]));
         });
         return reply.header("cache-control", "no-store").send(result);
       },
