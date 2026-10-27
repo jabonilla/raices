@@ -427,11 +427,30 @@ describe("the contract describes what is served", () => {
   });
 });
 describe("categoryName on request responses", () => {
-  /** A fresh relationship for this block, so it does not depend on earlier describes. */
+  /**
+   * A fresh pair and relationship for this block, so it does not depend on
+   * earlier describes — and does not re-invite a phone that is already
+   * paired, which the invite route refuses with 409.
+   */
+  let senderC: Account;
+  let recipientC: Account;
   let family: string;
 
+  beforeAll(async () => {
+    senderC = await login("+15551300005", "127.0.0.5");
+    recipientC = await login("+50251300006", "127.0.0.6");
+    const invited = await call("POST", "/relationships/invite", senderC, {
+      phone: "+50251300006",
+      displayName: "Mamá",
+    });
+    expect(invited.statusCode).toBe(201);
+    family = invited.json<{ id: string }>().id;
+    const accepted = await call("POST", `/relationships/${family}/accept`, recipientC);
+    expect(accepted.statusCode).toBe(200);
+  });
+
   async function submit(categoryId: string | null): Promise<string> {
-    const submitted = await call("POST", `/relationships/${family}/requests`, recipientA, {
+    const submitted = await call("POST", `/relationships/${family}/requests`, recipientC, {
       amount: { amountMinor: "25000", currency: "USD" },
       description: "Renta",
       categoryId,
@@ -445,7 +464,7 @@ describe("categoryName on request responses", () => {
     requestId: string,
   ): Promise<string | null> {
     if (route === "list") {
-      const listed = await call("GET", `/relationships/${family}/requests`, recipientA);
+      const listed = await call("GET", `/relationships/${family}/requests`, recipientC);
       expect(listed.statusCode).toBe(200);
       const row = listed
         .json<{ id: string; categoryName: string | null }[]>()
@@ -453,21 +472,12 @@ describe("categoryName on request responses", () => {
       expect(row).toBeDefined();
       return row?.categoryName ?? null;
     }
-    const detail = await call("GET", `/requests/${requestId}`, senderA);
+    const detail = await call("GET", `/requests/${requestId}`, senderC);
     expect(detail.statusCode).toBe(200);
     return detail.json<{ categoryName: string | null }>().categoryName;
   }
 
   it("resolves the stored name on the list and on the detail", async () => {
-    const invited = await call("POST", "/relationships/invite", senderA, {
-      phone: "+50251300002",
-      displayName: "Mamá",
-    });
-    expect(invited.statusCode).toBe(201);
-    family = invited.json<{ id: string }>().id;
-    const accepted = await call("POST", `/relationships/${family}/accept`, recipientA);
-    expect(accepted.statusCode).toBe(200);
-
     const categoryId = crypto.randomUUID();
     await db
       .insertInto("category")
@@ -514,14 +524,14 @@ describe("categoryName on request responses", () => {
           id: oldVersionId,
           plan_id: plan.id,
           version_number: 1,
-          created_by: senderA.userId,
+          created_by: senderC.userId,
           cap_timezone: "America/Guatemala",
         },
         {
           id: currentVersionId,
           plan_id: plan.id,
           version_number: 2,
-          created_by: senderA.userId,
+          created_by: senderC.userId,
           cap_timezone: "America/Guatemala",
         },
       ])
