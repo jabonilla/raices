@@ -143,6 +143,51 @@ describe("a family can get all the way through over HTTP", () => {
   });
 });
 
+describe("S5 display fields", () => {
+  it("shows the invitee phone only to the inviter", async () => {
+    const listed = await call("GET", "/relationships", senderA);
+    expect(listed.statusCode).toBe(200);
+    const row = listed
+      .json<{ id: string; inviteePhoneE164?: string }[]>()
+      .find((candidate) => candidate.id === familyA);
+    expect(row?.inviteePhoneE164).toBe("+50251300002");
+
+    const asSender = await call("GET", `/relationships/${familyA}`, senderA);
+    expect(asSender.statusCode).toBe(200);
+    expect(asSender.json<{ inviteePhoneE164?: string }>().inviteePhoneE164).toBe("+50251300002");
+
+    // The invitee's own view omits the field: it answers "the phone you
+    // supplied", and the invitee supplied nothing.
+    const asRecipient = await call("GET", `/relationships/${familyA}`, recipientA);
+    expect(asRecipient.statusCode).toBe(200);
+    expect("inviteePhoneE164" in asRecipient.json<Record<string, unknown>>()).toBe(false);
+  });
+
+  it("formats the request amount server-side in the viewer's locale", async () => {
+    const submitted = await call("POST", `/relationships/${familyA}/requests`, recipientA, {
+      amount: { amountMinor: "25000", currency: "USD" },
+      description: "Display",
+    });
+    expect(submitted.statusCode).toBe(201);
+    const requestId = submitted.json<{ id: string }>().id;
+
+    // senderA's locale is the default 'es': USD 250.00 renders "250,00\u00A0US$".
+    // Intl separates the amount and the code with a non-breaking space
+    // (U+00A0), so the literal spells it out instead of looking identical
+    // to a regular space and failing Object.is equality.
+    const detail = await call("GET", `/requests/${requestId}`, senderA);
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json<{ amountDisplay: string }>().amountDisplay).toBe("250,00\u00A0US$");
+    expect(detail.json<{ amount: { amountMinor: string } }>().amount.amountMinor).toBe("25000");
+
+    const listed = await call("GET", `/relationships/${familyA}/requests`, recipientA);
+    const listedRow = listed
+      .json<{ id: string; amountDisplay: string }[]>()
+      .find((candidate) => candidate.id === requestId);
+    expect(listedRow?.amountDisplay).toBe("250,00\u00A0US$");
+  });
+});
+
 describe("a stranger is refused", () => {
   /** A fresh pending request in family A for the refusal tests to aim at. */
   let requestId: string;

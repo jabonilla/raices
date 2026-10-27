@@ -1,4 +1,4 @@
-import { SUPPORTED_CURRENCIES, money } from "@raices/money";
+import { SUPPORTED_CURRENCIES, format, money } from "@raices/money";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Kysely } from "kysely";
 import { z } from "zod";
@@ -59,6 +59,13 @@ export const RequestResponseSchema = z.object({
   relationshipId: z.uuid(),
   requestedBy: z.uuid(),
   amount: WireMoneySchema,
+  /**
+   * S5 contract decision (Claude, 2026-10-27): the server-formatted
+   * display string, formatted by packages/money's formatter in the
+   * viewer's locale, next to amountMinor and currency. The app renders
+   * it verbatim and never formats money itself (issue #12).
+   */
+  amountDisplay: z.string(),
   categoryId: z.uuid().nullable(),
   description: z.string(),
   tier: z.enum(TIERS),
@@ -78,7 +85,7 @@ export interface RequestHttpOptions {
   receipts?: DurableReceiptStore;
 }
 
-function view(record: RequestRecord): z.infer<typeof RequestResponseSchema> {
+function view(record: RequestRecord, locale: string): z.infer<typeof RequestResponseSchema> {
   return RequestResponseSchema.parse({
     id: record.id,
     relationshipId: record.relationshipId,
@@ -87,6 +94,7 @@ function view(record: RequestRecord): z.infer<typeof RequestResponseSchema> {
       amountMinor: record.amount.amount.toString(),
       currency: record.amount.currency,
     },
+    amountDisplay: format(record.amount, locale),
     categoryId: record.categoryId,
     description: record.description,
     tier: record.tier,
@@ -109,6 +117,20 @@ function view(record: RequestRecord): z.infer<typeof RequestResponseSchema> {
 export function registerRequestRoutes(app: FastifyInstance, options: RequestHttpOptions): void {
   const { db, identity } = options;
   const router = installAuthorization(app, { db, identity });
+
+  /**
+   * The viewer's locale for amountDisplay. Falls back to Spanish when
+   * the user row is missing rather than failing the read: the locale
+   * only styles the display string, it never changes the amount.
+   */
+  async function viewerLocale(userId: string): Promise<string> {
+    const row = await db
+      .selectFrom("app_user")
+      .select("locale")
+      .where("id", "=", userId)
+      .executeTakeFirst();
+    return row?.locale ?? "es";
+  }
 
   async function write<T>(
     request: FastifyRequest,
@@ -182,6 +204,8 @@ export function registerRequestRoutes(app: FastifyInstance, options: RequestHttp
     policy: { kind: "relationship" },
     handler: async (request, reply) => {
       z.object({}).strict().parse(request.query);
+      const userId = principal(request).id;
+      const locale = await viewerLocale(userId);
       const relationship = authorizedRelationship(request);
       // One `readRequest` per row rather than a hand-rolled projection: the
       // row-to-record mapping validates the stored currency and rebuilds the
@@ -196,7 +220,7 @@ export function registerRequestRoutes(app: FastifyInstance, options: RequestHttp
         .orderBy("seq", "desc")
         .execute();
       reply.header("cache-control", "no-store");
-      return Promise.all(rows.map(async (row) => view(await readRequest(db, row.id))));
+      return Promise.all(rows.map(async (row) => view(await readRequest(db, row.id), locale)));
     },
   });
 
@@ -207,8 +231,9 @@ export function registerRequestRoutes(app: FastifyInstance, options: RequestHttp
     handler: async (request, reply) => {
       z.object({}).strict().parse(request.query);
       const { id } = RequestParamsSchema.parse(request.params);
+      const locale = await viewerLocale(principal(request).id);
       reply.header("cache-control", "no-store");
-      return view(await readRequest(db, id));
+      return view(await readRequest(db, id), locale);
     },
   });
 
@@ -243,7 +268,7 @@ export function registerRequestRoutes(app: FastifyInstance, options: RequestHttp
                 channel: "app",
                 reason: (body as z.infer<typeof DeclineRequestSchema>).reason,
               });
-            return view(await readRequest(db, id));
+            return view(await readRequest(db, id), await viewerLocale(userId));
           },
         );
         return reply.header("cache-control", "no-store").send(result);
