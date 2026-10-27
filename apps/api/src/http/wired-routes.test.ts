@@ -171,17 +171,20 @@ describe("S5 display fields", () => {
     expect(submitted.statusCode).toBe(201);
     const requestId = submitted.json<{ id: string }>().id;
 
-    // senderA's locale is the default 'es': USD 250.00 renders "250,00 US$".
+    // senderA's locale is the default 'es': USD 250.00 renders "250,00\u00A0US$".
+    // Intl separates the amount and the code with a non-breaking space
+    // (U+00A0), so the literal spells it out instead of looking identical
+    // to a regular space and failing Object.is equality.
     const detail = await call("GET", `/requests/${requestId}`, senderA);
     expect(detail.statusCode).toBe(200);
-    expect(detail.json<{ amountDisplay: string }>().amountDisplay).toBe("250,00 US$");
+    expect(detail.json<{ amountDisplay: string }>().amountDisplay).toBe("250,00\u00A0US$");
     expect(detail.json<{ amount: { amountMinor: string } }>().amount.amountMinor).toBe("25000");
 
     const listed = await call("GET", `/relationships/${familyA}/requests`, recipientA);
     const listedRow = listed
       .json<{ id: string; amountDisplay: string }[]>()
       .find((candidate) => candidate.id === requestId);
-    expect(listedRow?.amountDisplay).toBe("250,00 US$");
+    expect(listedRow?.amountDisplay).toBe("250,00\u00A0US$");
   });
 });
 
