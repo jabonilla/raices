@@ -1,14 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { UnauthorizedError } from "../errors.js";
 import { IdentityService, RequestCodeSchema, VerifyCodeSchema } from "../identity/service.js";
 
-export function bearerToken(request: FastifyRequest): string {
-  const header = request.headers.authorization;
-  const match = typeof header === "string" ? /^Bearer ([A-Za-z0-9_-]{43})$/.exec(header) : null;
-  const token = match?.[1];
-  if (token === undefined) throw new UnauthorizedError();
-  return token;
-}
+export { bearerToken } from "./policy.js";
+import { bearerToken, installAuthorization } from "./policy.js";
 export interface IdentityHttpOptions {
   identity: IdentityService;
   /** K2.11 cheap in-memory bound. Must run before any identity/database work. */
@@ -21,6 +15,7 @@ export function registerIdentityRoutes(app: FastifyInstance, options: IdentityHt
     throw new Error("Auth routes require rateLimitCheck");
   if (process.env.NODE_ENV === "production" && typeof options.clientIp !== "function")
     throw new Error("Production auth routes require a trusted clientIp resolver");
+  const router = installAuthorization(app, { identity: options.identity });
   const ip =
     options.clientIp ??
     ((request: FastifyRequest) => request.raw.socket.remoteAddress ?? "unknown");
@@ -44,19 +39,37 @@ export function registerIdentityRoutes(app: FastifyInstance, options: IdentityHt
     return value;
   };
   // Do not trust arbitrary X-Forwarded-For, even if the host does.
-  app.post("/auth/otp/request", { onRequest }, async (request, reply) => {
-    const input = RequestCodeSchema.parse(request.body);
-    reply.header("cache-control", "no-store");
-    const result = await options.identity.requestCode({ ...input, ip: clientIp(request) });
-    return reply.code(202).send(result);
+  router.route({
+    method: "POST",
+    url: "/auth/otp/request",
+    policy: { kind: "public" },
+    onRequest,
+    handler: async (request, reply) => {
+      const input = RequestCodeSchema.parse(request.body);
+      reply.header("cache-control", "no-store");
+      const result = await options.identity.requestCode({ ...input, ip: clientIp(request) });
+      return reply.code(202).send(result);
+    },
   });
-  app.post("/auth/otp/verify", { onRequest }, async (request, reply) => {
-    const input = VerifyCodeSchema.parse(request.body);
-    reply.header("cache-control", "no-store");
-    return options.identity.verifyCode({ ...input, ip: clientIp(request) });
+  router.route({
+    method: "POST",
+    url: "/auth/otp/verify",
+    policy: { kind: "public" },
+    onRequest,
+    handler: async (request, reply) => {
+      const input = VerifyCodeSchema.parse(request.body);
+      reply.header("cache-control", "no-store");
+      return options.identity.verifyCode({ ...input, ip: clientIp(request) });
+    },
   });
-  app.post("/auth/session/revoke", { onRequest }, async (request, reply) => {
-    await options.identity.revoke(bearerToken(request));
-    return reply.header("cache-control", "no-store").code(204).send();
+  router.route({
+    method: "POST",
+    url: "/auth/session/revoke",
+    policy: { kind: "sender" },
+    onRequest,
+    handler: async (request, reply) => {
+      await options.identity.revoke(bearerToken(request));
+      return reply.header("cache-control", "no-store").code(204).send();
+    },
   });
 }

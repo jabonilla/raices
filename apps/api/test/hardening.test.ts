@@ -6,10 +6,16 @@ const app = buildApp();
 const limitedApp = buildApp({ rateLimitMax: 3, rateLimitWindowMs: 60_000 });
 const resettingApp = buildApp({ rateLimitMax: 2, rateLimitWindowMs: 200 });
 
+// Policies declared because buildApp installs the authorization guard and it
+// refuses an unpoliced route, test-only or not.
 for (const instance of [limitedApp, resettingApp]) {
-  instance.get("/ping", () => ({ pong: true }));
+  instance.get("/ping", { config: { authorizationPolicy: { kind: "public" as const } } }, () => ({
+    pong: true,
+  }));
 }
-app.post("/echo", (request) => ({ got: request.body }));
+app.post("/echo", { config: { authorizationPolicy: { kind: "public" as const } } }, (request) => ({
+  got: request.body,
+}));
 
 beforeAll(async () => {
   await app.ready();

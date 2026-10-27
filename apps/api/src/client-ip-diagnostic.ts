@@ -17,10 +17,20 @@ export function registerClientIpDiagnostic(
 
   const salt = env.DIAGNOSTIC_IP_SALT;
   if (!salt) return;
-  app.get("/__diagnostics/client-ip", { logLevel: "silent" }, (request, reply) => {
-    reply.header("Cache-Control", "no-store");
-    return {
-      clientIpHash: createHmac("sha256", salt).update(request.ip).digest("hex"),
-    };
-  });
+  app.get(
+    "/__diagnostics/client-ip",
+    {
+      logLevel: "silent",
+      // Declared because the authorization guard refuses any route without a
+      // policy (deny by default). Public is right: the response is an HMAC of
+      // the caller's own address and says nothing about anyone else.
+      config: { authorizationPolicy: { kind: "public" } },
+    },
+    (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      return {
+        clientIpHash: createHmac("sha256", salt).update(request.ip).digest("hex"),
+      };
+    },
+  );
 }

@@ -1,13 +1,23 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
+import type { Kysely } from "kysely";
 
 import { FakeChannelAdapter } from "@raices/channels";
 
 import { checkDatabaseReady } from "./health.js";
 import { registerClientIpDiagnostic } from "./client-ip-diagnostic.js";
+import type { Database } from "./db/schema.js";
 import { createPool } from "./db/index.js";
-import { NotFoundError, toApiError } from "./errors.js";
+import { NotFoundError, UnauthorizedError, toApiError } from "./errors.js";
 import { registerRateLimit, registerSecurityHeaders } from "./hardening.js";
+import type { IdentityService } from "./identity/service.js";
+import { buildHttpOpenApiDocument } from "./http/document.js";
+import type { DurableReceiptStore } from "./http/idempotency.js";
+import { registerIdentityRoutes } from "./http/identity.js";
+import type { InviteLimiter } from "./http/invite-limit.js";
+import { installAuthorization } from "./http/policy.js";
+import { registerRelationshipRoutes } from "./http/relationships.js";
+import { registerRequestRoutes } from "./http/requests.js";
 import { REDACT_OPTIONS, censorSensitiveKeys } from "./logging.js";
 import { buildOpenApiDocument } from "./openapi.js";
 import { registerTelemetry } from "./telemetry.js";
@@ -41,6 +51,29 @@ export interface BuildAppOptions {
    * test signature, and an in-memory deduplicator. Tests inject their own.
    */
   readonly webhooks?: Partial<WebhookRouteDeps> | undefined;
+  /**
+   * Everything the identity, relationship and request routes need.
+   *
+   * Left out, those routes are not registered and the app serves only the
+   * host routes — which is what the many `buildApp()` calls in the test
+   * suite want, and what a deployment without the identity and receipt
+   * secrets gets (see `index.ts`). The authorization guard is installed
+   * either way, so a route added without a policy still fails at boot.
+   */
+  readonly api?: ApiDependencies | undefined;
+}
+
+/**
+ * The collaborators the authenticated routes are built from.
+ *
+ * All injected rather than constructed here: the peppers are secrets, the
+ * OTP deliverer is a provider seam, and the test suite composes its own.
+ */
+export interface ApiDependencies {
+  readonly db: Kysely<Database>;
+  readonly identity: IdentityService;
+  readonly receipts: DurableReceiptStore;
+  readonly inviteLimiter: InviteLimiter;
 }
 
 /**
@@ -61,8 +94,20 @@ export const HOST_ROUTE_POLICIES = {
   "GET /health": "public",
   "GET /ready": "public",
   "GET /openapi.json": "public",
+  "GET /__diagnostics/client-ip": "public",
   "POST /webhooks/channel": "signature-verified",
 } as const;
+
+/**
+ * The route-level config a host route is registered with.
+ *
+ * Reading the policy out of `HOST_ROUTE_POLICIES` rather than repeating it
+ * at the route is what makes that constant load-bearing: edit the table and
+ * the route changes, so the table cannot drift into being a comment.
+ */
+function hostPolicy(route: keyof typeof HOST_ROUTE_POLICIES) {
+  return { config: { authorizationPolicy: { kind: HOST_ROUTE_POLICIES[route] } } } as const;
+}
 
 export type HostRoutePolicy = (typeof HOST_ROUTE_POLICIES)[keyof typeof HOST_ROUTE_POLICIES];
 
@@ -104,13 +149,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   registerSecurityHeaders(app);
 
-  // K3 integration point (K3.10): installAuthorization must run here —
-  // before ANY routes are registered in the host scope — so the
-  // authorization policy covers every route including the K2-owned
-  // /health, /ready, /openapi.json, and /webhooks/channel (see
-  // HOST_ROUTE_POLICIES above). K3 owns the installAuthorization
-  // implementation; this is the seam where it plugs in.
-  // TODO(k3): call installAuthorization(app) here when K3.10 lands.
+  // Authorization is installed here, before ANY route is registered, because
+  // its `onRoute` hook is what enforces deny-by-default and that hook only
+  // sees routes added after it. A route registered above this line would be
+  // silently unpoliced, which is the failure this whole arrangement exists
+  // to make impossible.
+  //
+  // Without `api` there is no database and no real identity service, so the
+  // policy gets one that refuses every credential. Nothing authenticated is
+  // registered in that configuration, so it is never consulted — but if a
+  // route is added later and forgets its deps, it denies rather than admits.
+  installAuthorization(app, {
+    identity: options.api?.identity ?? {
+      authenticate: () => Promise.reject(new UnauthorizedError()),
+    },
+    ...(options.api === undefined ? {} : { db: options.api.db }),
+  });
 
   const checkRateLimit = registerRateLimit(app, {
     max: options.rateLimitMax ?? 600,
@@ -153,14 +207,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   // /health: process is up. No dependencies checked.
   // Includes the deployed git SHA so the deployed-probe workflow can wait
   // until the expected commit is live (K2.50 follow-up).
-  app.get("/health", (): HealthResponse => {
+  app.get("/health", hostPolicy("GET /health"), (): HealthResponse => {
     const sha = process.env.GIT_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? "unknown";
     return { ok: true, sha };
   });
 
   // /ready: can we reach Postgres? Returns 503 when the DB is unreachable.
   // Never leaks connection strings or driver errors into the response body.
-  app.get("/ready", async (_, reply): Promise<ReadyResponse> => {
+  app.get("/ready", hostPolicy("GET /ready"), async (_, reply): Promise<ReadyResponse> => {
     const databaseUrl = process.env.DATABASE_URL;
     if (databaseUrl === undefined || databaseUrl === "") {
       // No DATABASE_URL configured — not ready, but don't leak anything.
@@ -184,8 +238,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   // /openapi.json: the API contract, generated at runtime from the Zod
   // schemas. Served as JSON; see src/openapi.ts.
-  app.get("/openapi.json", () => {
-    return buildOpenApiDocument();
+  // The document describes what this instance actually serves. With the
+  // authenticated routes wired it is the full contract; without them it is
+  // the host routes alone. Advertising paths that are not registered would
+  // make the document a plan rather than a description.
+  app.get("/openapi.json", hostPolicy("GET /openapi.json"), () => {
+    return options.api === undefined ? buildOpenApiDocument() : buildHttpOpenApiDocument();
   });
 
   // POST /webhooks/channel: the receiving half of the channel seam (K2.28).
@@ -199,6 +257,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     rateLimitCheck: options.webhooks?.rateLimitCheck ?? checkRateLimit,
     handleEvent: options.webhooks?.handleEvent,
   });
+
+  // The point of the ticket: identity, relationships and requests have been
+  // domain code with tests and no way in. `installAuthorization` above has
+  // already run, so each of these registers through the policy router and
+  // every one of their routes carries an explicit policy.
+  if (options.api !== undefined) {
+    const { db, identity, receipts, inviteLimiter } = options.api;
+    // `request.ip` is the trusted resolver these modules ask for: the Fastify
+    // instance above sets `trustProxy` to hop 0, so it is the address of the
+    // platform proxy we are actually behind and not an attacker-chosen entry
+    // in X-Forwarded-For (K3.21).
+    const clientIp = (request: FastifyRequest) => request.ip;
+    registerIdentityRoutes(app, { identity, rateLimitCheck: checkRateLimit, clientIp });
+    registerRelationshipRoutes(app, { db, identity, receipts, inviteLimiter, clientIp });
+    registerRequestRoutes(app, { db, identity, receipts });
+  }
 
   return app;
 }
