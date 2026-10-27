@@ -78,8 +78,15 @@ await check("rate-limit clientIp behind Railway", async () => {
   assert.match(String(first), /^[0-9a-f]{64}$/, "clientIpHash must be a sha256 hex digest");
   // A client-supplied X-Forwarded-For must not change who the API thinks we
   // are: with one trusted proxy hop, the spoofed leftmost entry is ignored.
+  // Bracket the spoofed request with two plain ones; if the plain hashes
+  // differ, our own egress IP moved mid-check and nothing can be concluded.
   const spoofed = await probe(path, { headers: { "x-forwarded-for": "203.0.113.7" } });
   assert.equal(spoofed.response.status, 200, "diagnostic (spoofed XFF) not 200");
+  const again = await probe(path);
+  assert.equal(again.response.status, 200, "diagnostic (second plain) not 200");
+  if (JSON.parse(again.body).clientIpHash !== first) {
+    throw new Error("UNVERIFIED: probe egress IP changed between requests; rerun from a stable IP");
+  }
   assert.equal(
     JSON.parse(spoofed.body).clientIpHash,
     first,
