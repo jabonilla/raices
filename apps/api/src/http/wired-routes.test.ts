@@ -426,3 +426,122 @@ describe("the contract describes what is served", () => {
     }
   });
 });
+describe("categoryName on request responses", () => {
+  /** A fresh relationship for this block, so it does not depend on earlier describes. */
+  let family: string;
+
+  async function submit(categoryId: string | null): Promise<string> {
+    const submitted = await call("POST", `/relationships/${family}/requests`, recipientA, {
+      amount: { amountMinor: "25000", currency: "USD" },
+      description: "Renta",
+      categoryId,
+    });
+    expect(submitted.statusCode).toBe(201);
+    return submitted.json<{ id: string }>().id;
+  }
+
+  async function categoryNameOn(
+    route: "list" | "detail",
+    requestId: string,
+  ): Promise<string | null> {
+    if (route === "list") {
+      const listed = await call("GET", `/relationships/${family}/requests`, recipientA);
+      expect(listed.statusCode).toBe(200);
+      const row = listed
+        .json<{ id: string; categoryName: string | null }[]>()
+        .find((candidate) => candidate.id === requestId);
+      expect(row).toBeDefined();
+      return row?.categoryName ?? null;
+    }
+    const detail = await call("GET", `/requests/${requestId}`, senderA);
+    expect(detail.statusCode).toBe(200);
+    return detail.json<{ categoryName: string | null }>().categoryName;
+  }
+
+  it("resolves the stored name on the list and on the detail", async () => {
+    const invited = await call("POST", "/relationships/invite", senderA, {
+      phone: "+50251300002",
+      displayName: "Mamá",
+    });
+    expect(invited.statusCode).toBe(201);
+    family = invited.json<{ id: string }>().id;
+    const accepted = await call("POST", `/relationships/${family}/accept`, recipientA);
+    expect(accepted.statusCode).toBe(200);
+
+    const categoryId = crypto.randomUUID();
+    await db
+      .insertInto("category")
+      .values({
+        id: categoryId,
+        plan_version_id: crypto.randomUUID(),
+        name: "Housing",
+        icon: "house",
+        monthly_cap_minor: null,
+        monthly_cap_currency: null,
+        is_system: true,
+      })
+      .execute();
+
+    const requestId = await submit(categoryId);
+    expect(await categoryNameOn("list", requestId)).toBe("Housing");
+    expect(await categoryNameOn("detail", requestId)).toBe("Housing");
+  });
+
+  it("is null when the request names no category", async () => {
+    const requestId = await submit(null);
+    expect(await categoryNameOn("list", requestId)).toBeNull();
+    expect(await categoryNameOn("detail", requestId)).toBeNull();
+  });
+
+  it("is null when the category id resolves to nothing", async () => {
+    const requestId = await submit(crypto.randomUUID());
+    expect(await categoryNameOn("list", requestId)).toBeNull();
+    expect(await categoryNameOn("detail", requestId)).toBeNull();
+  });
+
+  it("resolves a category from a plan version that is no longer current", async () => {
+    const oldVersionId = crypto.randomUUID();
+    const currentVersionId = crypto.randomUUID();
+    const plan = await db
+      .insertInto("money_plan")
+      .values({ relationship_id: family, current_version_id: currentVersionId })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("plan_version")
+      .values([
+        {
+          id: oldVersionId,
+          plan_id: plan.id,
+          version_number: 1,
+          created_by: senderA.userId,
+          cap_timezone: "America/Guatemala",
+        },
+        {
+          id: currentVersionId,
+          plan_id: plan.id,
+          version_number: 2,
+          created_by: senderA.userId,
+          cap_timezone: "America/Guatemala",
+        },
+      ])
+      .execute();
+    const categoryId = crypto.randomUUID();
+    await db
+      .insertInto("category")
+      .values({
+        id: categoryId,
+        plan_version_id: oldVersionId,
+        name: "Food",
+        icon: "food",
+        monthly_cap_minor: null,
+        monthly_cap_currency: null,
+        is_system: true,
+      })
+      .execute();
+
+    const requestId = await submit(categoryId);
+    expect(await categoryNameOn("list", requestId)).toBe("Food");
+    expect(await categoryNameOn("detail", requestId)).toBe("Food");
+  });
+});
