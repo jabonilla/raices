@@ -435,6 +435,9 @@ describe("categoryName on request responses", () => {
   let senderC: Account;
   let recipientC: Account;
   let family: string;
+  /** Two versions of one plan: v2 current, v1 superseded but still referenced. */
+  let currentVersionId: string;
+  let oldVersionId: string;
 
   beforeAll(async () => {
     senderC = await login("+15551300005", "127.0.0.5");
@@ -447,74 +450,16 @@ describe("categoryName on request responses", () => {
     family = invited.json<{ id: string }>().id;
     const accepted = await call("POST", `/relationships/${family}/accept`, recipientC);
     expect(accepted.statusCode).toBe(200);
-  });
 
-  async function submit(categoryId: string | null): Promise<string> {
-    const submitted = await call("POST", `/relationships/${family}/requests`, recipientC, {
-      amount: { amountMinor: "25000", currency: "USD" },
-      description: "Renta",
-      categoryId,
-    });
-    expect(submitted.statusCode).toBe(201);
-    return submitted.json<{ id: string }>().id;
-  }
-
-  async function categoryNameOn(
-    route: "list" | "detail",
-    requestId: string,
-  ): Promise<string | null> {
-    if (route === "list") {
-      const listed = await call("GET", `/relationships/${family}/requests`, recipientC);
-      expect(listed.statusCode).toBe(200);
-      const row = listed
-        .json<{ id: string; categoryName: string | null }[]>()
-        .find((candidate) => candidate.id === requestId);
-      expect(row).toBeDefined();
-      return row?.categoryName ?? null;
-    }
-    const detail = await call("GET", `/requests/${requestId}`, senderC);
-    expect(detail.statusCode).toBe(200);
-    return detail.json<{ categoryName: string | null }>().categoryName;
-  }
-
-  it("resolves the stored name on the list and on the detail", async () => {
-    const categoryId = crypto.randomUUID();
-    await db
-      .insertInto("category")
-      .values({
-        id: categoryId,
-        plan_version_id: crypto.randomUUID(),
-        name: "Housing",
-        icon: "house",
-        monthly_cap_minor: null,
-        monthly_cap_currency: null,
-        is_system: true,
-      })
-      .execute();
-
-    const requestId = await submit(categoryId);
-    expect(await categoryNameOn("list", requestId)).toBe("Housing");
-    expect(await categoryNameOn("detail", requestId)).toBe("Housing");
-  });
-
-  it("is null when the request names no category", async () => {
-    const requestId = await submit(null);
-    expect(await categoryNameOn("list", requestId)).toBeNull();
-    expect(await categoryNameOn("detail", requestId)).toBeNull();
-  });
-
-  it("is null when the category id resolves to nothing", async () => {
-    const requestId = await submit(crypto.randomUUID());
-    expect(await categoryNameOn("list", requestId)).toBeNull();
-    expect(await categoryNameOn("detail", requestId)).toBeNull();
-  });
-
-  it("resolves a category from a plan version that is no longer current", async () => {
-    const oldVersionId = crypto.randomUUID();
-    const currentVersionId = crypto.randomUUID();
+    // The foreign keys dictate the order: a plan points at its current
+    // version, and a version points at its plan, so the plan is inserted
+    // with a null pointer, the versions are added, and the pointer moves.
+    // money_plan is deliberately mutable for exactly this (0005).
+    currentVersionId = crypto.randomUUID();
+    oldVersionId = crypto.randomUUID();
     const plan = await db
       .insertInto("money_plan")
-      .values({ relationship_id: family, current_version_id: currentVersionId })
+      .values({ relationship_id: family, current_version_id: null })
       .returning("id")
       .executeTakeFirstOrThrow();
     await db
@@ -536,21 +481,94 @@ describe("categoryName on request responses", () => {
         },
       ])
       .execute();
+    await db
+      .updateTable("money_plan")
+      .set({ current_version_id: currentVersionId })
+      .where("id", "=", plan.id)
+      .execute();
+  });
+
+  async function seedCategory(name: string, versionId: string): Promise<string> {
     const categoryId = crypto.randomUUID();
     await db
       .insertInto("category")
       .values({
         id: categoryId,
-        plan_version_id: oldVersionId,
-        name: "Food",
-        icon: "food",
+        plan_version_id: versionId,
+        name,
+        icon: "house",
         monthly_cap_minor: null,
         monthly_cap_currency: null,
         is_system: true,
       })
       .execute();
+    return categoryId;
+  }
 
-    const requestId = await submit(categoryId);
+  async function submit(categoryId: string | null) {
+    return call("POST", `/relationships/${family}/requests`, recipientC, {
+      amount: { amountMinor: "25000", currency: "USD" },
+      description: "Renta",
+      categoryId,
+    });
+  }
+
+  async function categoryNameOn(
+    route: "list" | "detail",
+    requestId: string,
+  ): Promise<string | null> {
+    if (route === "list") {
+      const listed = await call("GET", `/relationships/${family}/requests`, recipientC);
+      expect(listed.statusCode).toBe(200);
+      const row = listed
+        .json<{ id: string; categoryName: string | null }[]>()
+        .find((candidate) => candidate.id === requestId);
+      expect(row).toBeDefined();
+      return row?.categoryName ?? null;
+    }
+    const detail = await call("GET", `/requests/${requestId}`, senderC);
+    expect(detail.statusCode).toBe(200);
+    return detail.json<{ categoryName: string | null }>().categoryName;
+  }
+
+  it("resolves the stored name on the list and on the detail", async () => {
+    const categoryId = await seedCategory("Housing", currentVersionId);
+    const submitted = await submit(categoryId);
+    expect(submitted.statusCode).toBe(201);
+    const requestId = submitted.json<{ id: string }>().id;
+    expect(await categoryNameOn("list", requestId)).toBe("Housing");
+    expect(await categoryNameOn("detail", requestId)).toBe("Housing");
+  });
+
+  it("is null when the request names no category", async () => {
+    const submitted = await submit(null);
+    expect(submitted.statusCode).toBe(201);
+    const requestId = submitted.json<{ id: string }>().id;
+    expect(await categoryNameOn("list", requestId)).toBeNull();
+    expect(await categoryNameOn("detail", requestId)).toBeNull();
+  });
+
+  it("refuses a category id that resolves to nothing", async () => {
+    // A dangling id cannot be observed through the API, and that is the
+    // point: request.category_id is a foreign key, and category rows can
+    // never be deleted (0005's immutability trigger), so no request can
+    // ever point at a missing category. The resolver's `?? null` branch
+    // stays as defensive code. What the API must do with an unknown id is
+    // refuse the request, and create nothing.
+    const before = await call("GET", `/relationships/${family}/requests`, recipientC);
+    expect(before.statusCode).toBe(200);
+    const submitted = await submit(crypto.randomUUID());
+    expect(submitted.statusCode).toBeGreaterThanOrEqual(400);
+    const after = await call("GET", `/relationships/${family}/requests`, recipientC);
+    expect(after.statusCode).toBe(200);
+    expect(after.json<unknown[]>().length).toBe(before.json<unknown[]>().length);
+  });
+
+  it("resolves a category from a plan version that is no longer current", async () => {
+    const categoryId = await seedCategory("Food", oldVersionId);
+    const submitted = await submit(categoryId);
+    expect(submitted.statusCode).toBe(201);
+    const requestId = submitted.json<{ id: string }>().id;
     expect(await categoryNameOn("list", requestId)).toBe("Food");
     expect(await categoryNameOn("detail", requestId)).toBe("Food");
   });
