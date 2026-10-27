@@ -58,11 +58,42 @@ await check("bad webhook signature rejected", async () => {
   });
   assert.equal(response.status, 401);
 });
+// The clientIp check depends on the staging-only diagnostic from #139, which
+// only exists when DIAGNOSTIC_IP_SALT is set. That secret is gated on the
+// Railway containment decision, so until it lands the route is absent (404).
+// Absent => explicit, logged SKIP (the property is still UNVERIFIED, and the
+// log says so). Present => it must prove the property or the probe FAILS.
+const skipped = [];
 await check("rate-limit clientIp behind Railway", async () => {
-  throw new Error(
-    "UNVERIFIED: no safe low-limit endpoint or trusted clientIp diagnostic; do not infer isolation from 600/min production cap",
+  const path = "/__diagnostics/client-ip";
+  const plain = await probe(path);
+  if (plain.response.status === 404) {
+    skipped.push(
+      "rate-limit clientIp behind Railway: UNVERIFIED (diagnostic route absent; DIAGNOSTIC_IP_SALT not set)",
+    );
+    return;
+  }
+  assert.equal(plain.response.status, 200, "diagnostic present but not 200");
+  const first = JSON.parse(plain.body).clientIpHash;
+  assert.match(String(first), /^[0-9a-f]{64}$/, "clientIpHash must be a sha256 hex digest");
+  // A client-supplied X-Forwarded-For must not change who the API thinks we
+  // are: with one trusted proxy hop, the spoofed leftmost entry is ignored.
+  // Bracket the spoofed request with two plain ones; if the plain hashes
+  // differ, our own egress IP moved mid-check and nothing can be concluded.
+  const spoofed = await probe(path, { headers: { "x-forwarded-for": "203.0.113.7" } });
+  assert.equal(spoofed.response.status, 200, "diagnostic (spoofed XFF) not 200");
+  const again = await probe(path);
+  assert.equal(again.response.status, 200, "diagnostic (second plain) not 200");
+  if (JSON.parse(again.body).clientIpHash !== first) {
+    throw new Error("UNVERIFIED: probe egress IP changed between requests; rerun from a stable IP");
+  }
+  assert.equal(
+    JSON.parse(spoofed.body).clientIpHash,
+    first,
+    "spoofed X-Forwarded-For changed the client identity: rate limits can be bypassed",
   );
 });
+for (const line of skipped) console.log("SKIP", line);
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exitCode = 1;
