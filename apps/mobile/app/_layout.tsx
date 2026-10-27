@@ -5,6 +5,7 @@ import { StyleSheet, View } from "react-native";
 import "../src/i18n";
 import { DemoBanner } from "../src/components/DemoBanner";
 import { TabBar, type TabKey } from "../src/components/TabBar";
+import { SessionProvider } from "../src/data/SessionContext";
 import { tokens } from "../src/theme/tokens";
 
 /**
@@ -53,13 +54,15 @@ export default function Layout(): JSX.Element {
   };
 
   return (
-    <View style={styles.root}>
-      <DemoBanner />
-      <View style={styles.content}>
-        <Stack screenOptions={{ headerShown: false }} />
+    <SessionProvider>
+      <View style={styles.root}>
+        <DemoBanner />
+        <View style={styles.content}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </View>
+        <TabBar active={activeTabForPath(pathname)} onTabPress={handleTabPress} />
       </View>
-      <TabBar active={activeTabForPath(pathname)} onTabPress={handleTabPress} />
-    </View>
+    </SessionProvider>
   );
 }
 

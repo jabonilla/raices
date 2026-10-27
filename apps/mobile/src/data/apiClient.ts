@@ -21,7 +21,14 @@
  */
 
 export type ApiErrorKind =
-  "unauthorized" | "not-found" | "bad-request" | "conflict" | "server" | "offline" | "bad-payload";
+  | "unauthorized"
+  | "not-found"
+  | "bad-request"
+  | "conflict"
+  | "rate-limited"
+  | "server"
+  | "offline"
+  | "bad-payload";
 
 export class ApiClientError extends Error {
   readonly kind: ApiErrorKind;
@@ -259,6 +266,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     if (response.status === 404) throw new ApiClientError("not-found", 404);
     if (response.status === 400) throw new ApiClientError("bad-request", 400);
     if (response.status === 409) throw new ApiClientError("conflict", 409);
+    if (response.status === 429) throw new ApiClientError("rate-limited", 429);
     if (response.status < 200 || response.status >= 300) {
       throw new ApiClientError("server", response.status);
     }

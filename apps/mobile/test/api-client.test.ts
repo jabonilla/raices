@@ -122,6 +122,14 @@ describe("apiClient (S5)", () => {
     await expect(offline.listRelationships(TOKEN)).rejects.toMatchObject({ kind: "offline" });
   });
 
+  it("maps a 429 to rate-limited", async () => {
+    const client = createApiClient({
+      baseUrl: "https://api.example",
+      fetchImpl: () => Promise.resolve(jsonResponse(429, { error: "slow down" })),
+    });
+    await expect(client.listRelationships(TOKEN)).rejects.toMatchObject({ kind: "rate-limited" });
+  });
+
   it("rejects a payload that does not match the wire shape", async () => {
     const fetchImpl = vi.fn(() =>
       Promise.resolve(jsonResponse(200, { ...RELATIONSHIP_WIRE, status: "bogus" })),

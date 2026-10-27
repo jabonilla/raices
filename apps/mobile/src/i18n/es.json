@@ -68,6 +68,17 @@
     },
     "title": "Asistente"
   },
+  "auth": {
+    "title": "Iniciar sesión",
+    "phoneLabel": "Tu número de teléfono",
+    "sendCode": "Mandar código",
+    "codeLabel": "Código de 6 dígitos",
+    "codePlaceholder": "123456",
+    "verify": "Entrar",
+    "codeSent": "Te mandamos un código por WhatsApp. Escríbelo aquí.",
+    "wrongCode": "Ese código no coincide. Revisa y prueba otra vez.",
+    "useAnotherNumber": "Usar otro número"
+  },
   "common": {
     "back": "Atrás",
     "sendNow": "Enviar ahora"
