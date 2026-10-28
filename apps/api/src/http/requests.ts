@@ -60,6 +60,15 @@ export const RequestResponseSchema = z.object({
   requestedBy: z.uuid(),
   amount: WireMoneySchema,
   categoryId: z.uuid().nullable(),
+  /**
+   * The stored name of the category the request points at, resolved by id.
+   * Null when the request names no category, and null when the id resolves
+   * to nothing — a request outlives the plan version that named its
+   * category, and a dangling id must not invent a label. The app maps this
+   * name to its own category values and never displays it verbatim for
+   * unrecognized categories.
+   */
+  categoryName: z.string().nullable(),
   description: z.string(),
   tier: z.enum(TIERS),
   isEmergency: z.boolean(),
@@ -78,7 +87,30 @@ export interface RequestHttpOptions {
   receipts?: DurableReceiptStore;
 }
 
-function view(record: RequestRecord): z.infer<typeof RequestResponseSchema> {
+/**
+ * One query per page, none per row: the list handler hands every record's
+ * category id in at once and gets back the names that resolve. A missing
+ * name is not an error — the view turns it into null (see the schema
+ * comment on `categoryName`).
+ */
+async function resolveCategoryNames(
+  db: Kysely<Database>,
+  categoryIds: ReadonlyArray<string | null>,
+): Promise<Map<string, string>> {
+  const ids = [...new Set(categoryIds.filter((id): id is string => id !== null))];
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .selectFrom("category")
+    .select(["id", "name"])
+    .where("id", "in", ids)
+    .execute();
+  return new Map(rows.map((row) => [row.id, row.name]));
+}
+
+function view(
+  record: RequestRecord,
+  categoryNames: ReadonlyMap<string, string>,
+): z.infer<typeof RequestResponseSchema> {
   return RequestResponseSchema.parse({
     id: record.id,
     relationshipId: record.relationshipId,
@@ -88,6 +120,8 @@ function view(record: RequestRecord): z.infer<typeof RequestResponseSchema> {
       currency: record.amount.currency,
     },
     categoryId: record.categoryId,
+    categoryName:
+      record.categoryId === null ? null : (categoryNames.get(record.categoryId) ?? null),
     description: record.description,
     tier: record.tier,
     isEmergency: record.isEmergency,
@@ -195,8 +229,13 @@ export function registerRequestRoutes(app: FastifyInstance, options: RequestHttp
         .where("relationship_id", "=", relationship.id)
         .orderBy("seq", "desc")
         .execute();
+      const records = await Promise.all(rows.map((row) => readRequest(db, row.id)));
+      const categoryNames = await resolveCategoryNames(
+        db,
+        records.map((record) => record.categoryId),
+      );
       reply.header("cache-control", "no-store");
-      return Promise.all(rows.map(async (row) => view(await readRequest(db, row.id))));
+      return records.map((record) => view(record, categoryNames));
     },
   });
 
@@ -207,8 +246,9 @@ export function registerRequestRoutes(app: FastifyInstance, options: RequestHttp
     handler: async (request, reply) => {
       z.object({}).strict().parse(request.query);
       const { id } = RequestParamsSchema.parse(request.params);
+      const record = await readRequest(db, id);
       reply.header("cache-control", "no-store");
-      return view(await readRequest(db, id));
+      return view(record, await resolveCategoryNames(db, [record.categoryId]));
     },
   });
 
@@ -243,7 +283,8 @@ export function registerRequestRoutes(app: FastifyInstance, options: RequestHttp
                 channel: "app",
                 reason: (body as z.infer<typeof DeclineRequestSchema>).reason,
               });
-            return view(await readRequest(db, id));
+            const record = await readRequest(db, id);
+            return view(record, await resolveCategoryNames(db, [record.categoryId]));
           },
         );
         return reply.header("cache-control", "no-store").send(result);
