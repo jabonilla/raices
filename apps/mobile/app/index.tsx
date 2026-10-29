@@ -5,11 +5,14 @@ import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import "../src/i18n";
+import { selectProvider } from "../src/data/realProvider";
+import { useSession } from "../src/data/SessionContext";
 import { tokens } from "../src/theme/tokens";
 
 export default function Index(): JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
+  const { session } = useSession();
   const getStarted = t("app.getStarted");
   return (
     <View style={styles.container}>
@@ -19,7 +22,9 @@ export default function Index(): JSX.Element {
         accessibilityRole="button"
         style={styles.button}
         onPress={() => {
-          router.push("/home");
+          // Real build, no session yet: sign in first. Fixture build and
+          // signed-in senders go straight to /home, as before.
+          router.push(selectProvider() === "real" && session === null ? "/auth" : "/home");
         }}
       >
         <Text style={styles.buttonText}>{getStarted}</Text>

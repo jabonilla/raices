@@ -58,14 +58,19 @@ export interface HomeData {
 /** 02 · Aprobación */
 export interface ApprovalData {
   readonly recipientName: string;
-  readonly relationship: string;
-  readonly categoryLabel: string;
+  /**
+   * Optional: the API serves no role label ("Tu esposa"), no category
+   * lookup, and no plan/cap data yet. The screen renders each block only
+   * when its field is present — never invented copy for a real record.
+   */
+  readonly relationship?: string;
+  readonly categoryLabel?: string;
   readonly purpose: string;
   /** Preformatted opaque amount string. Never parsed, never computed. */
   readonly amountText: string;
-  readonly planMatchText: string;
+  readonly planMatchText?: string;
   /** Preformatted opaque amount string for the plan-match detail line. */
-  readonly planAvailableText: string;
+  readonly planAvailableText?: string;
 }
 
 /** 03 · Mi Meta */
@@ -138,8 +143,12 @@ export interface RelationshipItem {
   readonly id: string;
   /** What this sender calls this recipient. PII — never logged. */
   readonly displayName: string;
-  /** Recipient phone in E.164. */
-  readonly phoneE164: string;
+  /**
+   * Recipient phone in E.164 — present only when the viewer is the inviter
+   * (the API's inviteePhoneE164 is inviter-only). The list and detail
+   * screens render the phone line only when this is present.
+   */
+  readonly phoneE164?: string;
   readonly status: RelationshipStatus;
   /** ISO-8601 instant the invitation was created. */
   readonly invitedAtISO: string;

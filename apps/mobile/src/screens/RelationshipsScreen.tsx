@@ -144,7 +144,9 @@ function RelationshipRow({
         </Text>
         <RelationshipStatusBadge status={relationship.status} />
       </View>
-      <Text style={styles.phone}>{relationship.phoneE164}</Text>
+      {relationship.phoneE164 !== undefined ? (
+        <Text style={styles.phone}>{relationship.phoneE164}</Text>
+      ) : null}
       {relationship.status === "invited" && !expired ? (
         <Text style={styles.countdown}>{countdownText(relationship.expiresAtISO, t)}</Text>
       ) : null}
