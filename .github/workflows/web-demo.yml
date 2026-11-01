@@ -72,7 +72,7 @@ jobs:
           cp dist-web/index.html dist-web/404.html
           echo "404.html written (copy of index.html)"
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/mobile/dist-web
 
