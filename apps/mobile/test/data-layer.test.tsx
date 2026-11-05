@@ -115,27 +115,28 @@ describe("data-layer architecture (K2.24)", () => {
     }
   });
 
-  it("realProvider serves the labeled demo dataset (no screen endpoints exist yet)", () => {
-    // k2/web-live: the deployed API has no screen-data endpoints, so the
-    // real provider serves the fixture dataset. The honesty lives in the
-    // demo banner ("MODO DEMO · Sin dinero real") and the live /health
-    // probe — not in pretending the screens are API-backed. When K3 ships
-    // screen endpoints, these assertions get fetch-mock cases instead.
-    // The fixture generates timestamps from Date.now() on every call, so two
-    // back-to-back calls differ by ~1ms and the comparison flakes. Freeze the
-    // clock for this test so both providers resolve identical timestamps.
+  it("realProvider no longer serves fixture data for the wired slice (S5)", () => {
+    // S5: the slice routes fetch their own data and pass snapshot
+    // providers, so the shared real provider's slice getters throw
+    // instead of silently returning sample records. Home, goal, and
+    // assistant have no API backing yet and still serve the labeled
+    // demo dataset (the demo banner stays visible on those screens).
+    // The fixture generates timestamps from Date.now() on every call, so
+    // two back-to-back calls differ by ~1ms and the comparison flakes.
+    // Freeze the clock for this test so both providers resolve identical
+    // timestamps.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-15T12:00:00.000Z"));
     try {
       expect(realProvider.getHomeData()).toEqual(fixtureProvider.getHomeData());
-      expect(realProvider.getApprovalData()).toEqual(fixtureProvider.getApprovalData());
       expect(realProvider.getGoalData()).toEqual(fixtureProvider.getGoalData());
-      expect(realProvider.getHistoryData()).toEqual(fixtureProvider.getHistoryData());
       expect(realProvider.getAssistantData()).toEqual(fixtureProvider.getAssistantData());
-      expect(realProvider.getRelationshipsData()).toEqual(fixtureProvider.getRelationshipsData());
     } finally {
       vi.useRealTimers();
     }
+    expect(() => realProvider.getRelationshipsData()).toThrow(/not wired/);
+    expect(() => realProvider.getApprovalData()).toThrow(/not wired/);
+    expect(() => realProvider.getHistoryData()).toThrow(/not wired/);
   });
 
   it("amounts pass through as opaque strings — the provider never formats money", () => {

@@ -29,8 +29,16 @@ import { tokens } from "../theme/tokens";
  */
 export function InviteScreen({
   screenState = "content",
+  onSubmit,
 }: {
   readonly screenState?: ScreenContentState;
+  /**
+   * Real-path submit (S5): the route passes the API call. When absent,
+   * the fixture-local behavior applies — the invite is recorded locally
+   * and the confirmation panel shows exactly what was entered.
+   * A rejection keeps the form on screen with a plain error line.
+   */
+  readonly onSubmit?: (input: { displayName: string; phoneE164: string }) => Promise<void>;
 }): JSX.Element {
   const { t } = useTranslation();
   // Data layer is present for the K2.24 contract even though the fixture
@@ -42,6 +50,8 @@ export function InviteScreen({
   const [nameError, setNameError] = useState<string | undefined>(undefined);
   const [phoneError, setPhoneError] = useState<string | undefined>(undefined);
   const [sent, setSent] = useState<{ displayName: string; phoneE164: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | undefined>(undefined);
 
   if (screenState === "loading" || screenState === "offline") {
     return <ScreenState kind={screenState} />;
@@ -58,17 +68,32 @@ export function InviteScreen({
     );
   }
 
-  function submit(): void {
+  async function submit(): Promise<void> {
     const trimmedName = displayName.trim();
     const nextNameError = trimmedName === "" ? t("invite.errors.nameRequired") : undefined;
     const phoneKey = validatePhoneE164(phone);
     const nextPhoneError = phoneKey === null ? undefined : t(phoneKey);
     setNameError(nextNameError);
     setPhoneError(nextPhoneError);
-    if (nextNameError === undefined && nextPhoneError === undefined) {
+    if (nextNameError !== undefined || nextPhoneError !== undefined) {
+      return;
+    }
+    const input = { displayName: trimmedName, phoneE164: phone.trim() };
+    if (onSubmit === undefined) {
       // Fixture only: no API call. The invite is recorded locally and the
       // confirmation panel shows exactly what was entered.
-      setSent({ displayName: trimmedName, phoneE164: phone.trim() });
+      setSent(input);
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(undefined);
+    try {
+      await onSubmit(input);
+      setSent(input);
+    } catch {
+      setSubmitError(t("states.errorBody"));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -107,10 +132,15 @@ export function InviteScreen({
             error={phoneError}
             style={styles.phone}
           />
+          {submitError !== undefined ? <Text style={styles.submitError}>{submitError}</Text> : null}
           <Button
             variant="primary"
             label={t("invite.submit")}
-            onPress={submit}
+            onPress={() => {
+              void submit();
+            }}
+            disabled={submitting}
+            loading={submitting}
             style={styles.submit}
           />
         </View>
@@ -153,6 +183,12 @@ const styles = StyleSheet.create({
   },
   submit: {
     marginTop: tokens.spacing.s6,
+  },
+  submitError: {
+    fontSize: tokens.type.body.size,
+    fontFamily: tokens.font.body,
+    color: tokens.color.flagged,
+    marginTop: tokens.spacing.s4,
   },
   confirm: {
     alignItems: "center",

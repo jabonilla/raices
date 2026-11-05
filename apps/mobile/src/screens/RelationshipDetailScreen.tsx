@@ -95,10 +95,12 @@ export function RelationshipDetailScreen({
       <Text style={styles.name}>{relationship.displayName}</Text>
       <RelationshipStatusBadge status={relationship.status} />
       <View style={styles.rows}>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>{t("relationships.phoneLabel")}</Text>
-          <Text style={styles.rowValue}>{relationship.phoneE164}</Text>
-        </View>
+        {relationship.phoneE164 !== undefined ? (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>{t("relationships.phoneLabel")}</Text>
+            <Text style={styles.rowValue}>{relationship.phoneE164}</Text>
+          </View>
+        ) : null}
         <View style={styles.row}>
           <Text style={styles.rowLabel}>{t("relationships.statusRowLabel")}</Text>
           <Text style={styles.rowValue}>{t(`relationships.status.${relationship.status}`)}</Text>

@@ -77,38 +77,44 @@ export function ApprovalScreen({
         </View>
         <View>
           <Text style={styles.recipient}>{data.recipientName}</Text>
-          <Text style={styles.relationship}>{data.relationship}</Text>
+          {data.relationship !== undefined ? (
+            <Text style={styles.relationship}>{data.relationship}</Text>
+          ) : null}
         </View>
       </View>
 
       <View style={styles.divider} />
 
-      <View style={styles.categoryRow}>
-        <Text aria-hidden style={styles.categoryIcon}>
-          {CATEGORY_ICON}
-        </Text>
-        <Text style={styles.categoryLabel}>{data.categoryLabel}</Text>
-      </View>
+      {data.categoryLabel !== undefined ? (
+        <View style={styles.categoryRow}>
+          <Text aria-hidden style={styles.categoryIcon}>
+            {CATEGORY_ICON}
+          </Text>
+          <Text style={styles.categoryLabel}>{data.categoryLabel}</Text>
+        </View>
+      ) : null}
       <Text style={styles.purpose}>{data.purpose}</Text>
       <Text style={styles.amount}>{amount}</Text>
 
       <View style={styles.divider} />
 
-      <View style={styles.planBox}>
-        {/*
-          planMatchText arrives with its own "✓" from the provider (and the
-          test asserts that exact string), so no separate icon here.
-        */}
-        <View style={styles.planText}>
-          <Text style={styles.planMatch}>{data.planMatchText}</Text>
-          <Text style={styles.planDetail}>
-            {t("approval.planMatchDetail", {
-              available: data.planAvailableText,
-              category: data.categoryLabel,
-            })}
-          </Text>
+      {data.planMatchText !== undefined && data.planAvailableText !== undefined ? (
+        <View style={styles.planBox}>
+          {/*
+            planMatchText arrives with its own "✓" from the provider (and the
+            test asserts that exact string), so no separate icon here.
+          */}
+          <View style={styles.planText}>
+            <Text style={styles.planMatch}>{data.planMatchText}</Text>
+            <Text style={styles.planDetail}>
+              {t("approval.planMatchDetail", {
+                available: data.planAvailableText,
+                category: data.categoryLabel ?? "",
+              })}
+            </Text>
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <Button
         variant="primary"

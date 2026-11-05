@@ -5,14 +5,19 @@ import { StyleSheet, View } from "react-native";
 import "../src/i18n";
 import { DemoBanner } from "../src/components/DemoBanner";
 import { TabBar, type TabKey } from "../src/components/TabBar";
+import { selectProvider } from "../src/data/realProvider";
+import { SessionProvider } from "../src/data/SessionContext";
 import { tokens } from "../src/theme/tokens";
 
 /**
  * Root layout (K2.48).
  *
- * DemoBanner sits above every screen: this is the web demo build, so every
- * screen carries the "MODO DEMO · Sin dinero real" marker. No screen can
- * render without it.
+ * DemoBanner sits above every screen that serves demo data: this is the
+ * web demo build, so every fixture-backed screen carries the "MODO DEMO ·
+ * Sin dinero real" marker. The one exception is a slice route in real
+ * mode (/relationships, /invite, /approval), where the data comes from
+ * the live API — marking live records as demo data would be the lie in
+ * the other direction. Every other screen keeps the banner.
  *
  * TabBar sits below every screen: persistent navigation per the design
  * system (Inicio, Mi Meta, Enviar, Historial, Asistente). Every tabbed
@@ -40,6 +45,17 @@ function activeTabForPath(pathname: string): Exclude<TabKey, "send"> {
   return entry ? entry[0] : "home";
 }
 
+/**
+ * Slice routes (S5): in real mode these serve live API data, so the demo
+ * banner must not claim their records are sample data. Every other route
+ * serves fixture data in every mode and keeps the banner.
+ */
+const SLICE_ROUTES = ["/relationships", "/invite", "/approval"] as const;
+
+function isSliceRoute(pathname: string): boolean {
+  return SLICE_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
 export default function Layout(): JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
@@ -52,14 +68,18 @@ export default function Layout(): JSX.Element {
     router.push(TAB_ROUTES[tab]);
   };
 
+  const showDemoBanner = !(selectProvider() === "real" && isSliceRoute(pathname));
+
   return (
-    <View style={styles.root}>
-      <DemoBanner />
-      <View style={styles.content}>
-        <Stack screenOptions={{ headerShown: false }} />
+    <SessionProvider>
+      <View style={styles.root}>
+        {showDemoBanner ? <DemoBanner /> : null}
+        <View style={styles.content}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </View>
+        <TabBar active={activeTabForPath(pathname)} onTabPress={handleTabPress} />
       </View>
-      <TabBar active={activeTabForPath(pathname)} onTabPress={handleTabPress} />
-    </View>
+    </SessionProvider>
   );
 }
 

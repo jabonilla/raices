@@ -249,3 +249,64 @@ describe("displayName is PII: never logged (K2.27)", () => {
     }
   });
 });
+
+describe("InviteScreen real-path submit (S5)", () => {
+  function fillInviteForm(): void {
+    fireEvent.change(screen.getByLabelText("¿Cómo le dices a esta persona?"), {
+      target: { value: "Mamá" },
+    });
+    fireEvent.change(screen.getByLabelText("Número de teléfono"), {
+      target: { value: "55501111" },
+    });
+  }
+
+  it("calls onSubmit with the composed E.164 number and confirms", async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    renderWithFixture(<InviteScreen onSubmit={onSubmit} />);
+    fillInviteForm();
+    fireEvent.click(screen.getByRole("button", { name: "Enviar invitación" }));
+    await screen.findByText("+50255501111");
+    expect(onSubmit).toHaveBeenCalledWith({
+      displayName: "Mamá",
+      phoneE164: "+50255501111",
+    });
+  });
+
+  it("keeps the form on screen with an error line when onSubmit rejects", async () => {
+    const onSubmit = vi.fn(() => Promise.reject(new Error("boom")));
+    renderWithFixture(<InviteScreen onSubmit={onSubmit} />);
+    fillInviteForm();
+    fireEvent.click(screen.getByRole("button", { name: "Enviar invitación" }));
+    await screen.findByText(
+      "Intenta de nuevo en unos minutos. Si sigue sin funcionar, pregúntale al asistente.",
+    );
+    expect(screen.getByLabelText("¿Cómo le dices a esta persona?")).toBeTruthy();
+    expect(screen.queryByText("Mamá", { selector: "span" })).toBeNull();
+  });
+});
+
+describe("RelationshipsScreen phone line (S5)", () => {
+  it("renders no phone line when the API did not supply one", () => {
+    const provider = {
+      ...fixtureProvider,
+      getRelationshipsData: () => ({
+        relationships: [
+          {
+            id: "rel-x",
+            displayName: "Mamá",
+            status: "active" as const,
+            invitedAtISO: new Date().toISOString(),
+            expiresAtISO: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          },
+        ],
+      }),
+    };
+    render(
+      <ScreenData provider={provider}>
+        <RelationshipsScreen />
+      </ScreenData>,
+    );
+    expect(screen.getByText("Mamá")).toBeTruthy();
+    expect(screen.queryByText("+50255501111")).toBeNull();
+  });
+});
